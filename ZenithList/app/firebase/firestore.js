@@ -6,13 +6,10 @@ import {
   deleteDoc,
   doc,
   query,
-  where,
   onSnapshot,
   serverTimestamp,
   getDoc,
-  getDocs, // Import getDocs
   runTransaction,
-  writeBatch
 } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 
@@ -48,53 +45,6 @@ export const deleteTask = (userId, taskId) => {
   const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
   return deleteDoc(taskDoc);
 };
-
-// --- Project Functions ---
-
-export const getProjects = (userId, callback) => {
-    const projectsCol = collection(db, 'users', userId, 'projects');
-    const q = query(projectsCol); // You could order this, e.g., orderBy('name')
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const projects = [{ id: 'all', name: 'All Tasks', icon: 'view-list', color: '#808080' }]; // Default project
-        querySnapshot.forEach((doc) => {
-            projects.push({ id: doc.id, ...doc.data() });
-        });
-        callback(projects);
-    });
-    return unsubscribe;
-};
-
-export const addProject = (userId, project) => {
-    return addDoc(collection(db, 'users', userId, 'projects'), {
-        ...project,
-        createdAt: serverTimestamp(),
-    });
-};
-
-export const updateProject = (userId, projectId, updates) => {
-    const projectDoc = doc(db, 'users', userId, 'projects', projectId);
-    return updateDoc(projectDoc, updates);
-};
-
-export const deleteProject = async (userId, projectId) => {
-    const projectDocRef = doc(db, 'users', userId, 'projects', projectId);
-    const tasksQuery = query(collection(db, 'users', userId, 'tasks'), where('projectId', '==', projectId));
-    
-    const batch = writeBatch(db);
-    
-    // Get all tasks in the project and add their deletion to the batch
-    const tasksSnapshot = await getDocs(tasksQuery);
-    tasksSnapshot.forEach(taskDoc => {
-        batch.delete(taskDoc.ref);
-    });
-    
-    // Add the project deletion to the batch
-    batch.delete(projectDocRef);
-    
-    // Commit the batch
-    return batch.commit();
-};
-
 
 // --- Gamification & User Data ---
 

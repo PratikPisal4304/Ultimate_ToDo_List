@@ -6,10 +6,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useTheme } from 'react-native-paper';
 
 import DashboardScreen from '../screens/DashboardScreen';
-import ProjectsScreen from '../screens/ProjectsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FocusScreen from '../screens/FocusScreen';
-import CalendarScreen from '../screens/CalendarScreen'; // <-- Import the new screen
+import CalendarScreen from '../screens/CalendarScreen';
 
 const Tab = createMaterialBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -33,7 +32,6 @@ const MainTabs = () => {
           ),
         }}
       />
-      {/* Add the new Calendar Tab Screen here */}
       <Tab.Screen
         name="Calendar"
         component={CalendarScreen}
@@ -41,16 +39,6 @@ const MainTabs = () => {
           tabBarLabel: 'Calendar',
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="calendar-month-outline" color={color} size={26} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Projects"
-        component={ProjectsScreen}
-        options={{
-          tabBarLabel: 'Projects',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="briefcase-variant-outline" color={color} size={26} />
           ),
         }}
       />

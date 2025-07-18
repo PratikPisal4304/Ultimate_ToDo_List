@@ -4,7 +4,6 @@ import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingVi
 import { TextInput, Button, Text, useTheme, IconButton, Menu, Divider } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { TasksContext } from '../context/TasksContext';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { scheduleTaskNotification } from '../notifications';
 import SubtaskItem from './SubtaskItem'; // Import the new component
@@ -30,14 +29,11 @@ const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
 
 const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   const theme = useTheme();
-  const { projects } = useContext(TasksContext);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState(new Date());
-  const [projectId, setProjectId] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
   // New state for subtasks
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtask, setNewSubtask] = useState('');
@@ -48,14 +44,12 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       setDescription(taskToEdit.description || '');
       setPriority(taskToEdit.priority || 'Medium');
       setDueDate(taskToEdit.dueDate?.toDate() || new Date());
-      setProjectId(taskToEdit.projectId || null);
       setSubtasks(taskToEdit.subtasks || []); // Load existing subtasks
     } else {
       setTitle('');
       setDescription('');
       setPriority('Medium');
       setDueDate(new Date());
-      setProjectId(null);
       setSubtasks([]); // Reset subtasks for new task
     }
     setNewSubtask(''); // Always reset new subtask input
@@ -86,7 +80,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       return;
     }
     // Include subtasks in the data to be saved
-    const taskData = { title, description, priority, dueDate, projectId, subtasks };
+    const taskData = { title, description, priority, dueDate, subtasks };
     onSave(taskData);
 
     scheduleTaskNotification({
@@ -101,8 +95,6 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
     setShowDatePicker(Platform.OS === 'ios');
     setDueDate(currentDate);
   };
-
-  const selectedProject = projects.find(p => p.id === projectId) || { name: 'No Project', color: theme.colors.placeholder };
 
   return (
     <Modal
@@ -124,27 +116,6 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
 
             <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
             <TextInput label="Description" value={description} onChangeText={setDescription} style={styles.input} multiline mode="outlined" numberOfLines={3} />
-
-            <Menu
-                visible={menuVisible}
-                onDismiss={() => setMenuVisible(false)}
-                anchor={
-                    <Button
-                        onPress={() => setMenuVisible(true)}
-                        icon={() => <MaterialCommunityIcons name="circle" color={selectedProject.color} size={14} />}
-                        mode="outlined"
-                        style={styles.input}
-                        contentStyle={{justifyContent: 'flex-start'}}
-                    >
-                        {selectedProject.name}
-                    </Button>
-                }
-            >
-                <Menu.Item onPress={() => { setProjectId(null); setMenuVisible(false); }} title="No Project" />
-                {projects.filter(p => p.id !== 'all').map(p => (
-                    <Menu.Item key={p.id} onPress={() => { setProjectId(p.id); setMenuVisible(false); }} title={p.name} />
-                ))}
-            </Menu>
 
             <Text style={styles.label}>Priority</Text>
             <View style={styles.priorityContainer}>
