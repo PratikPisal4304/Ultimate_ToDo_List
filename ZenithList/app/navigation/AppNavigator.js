@@ -9,6 +9,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import ProjectsScreen from '../screens/ProjectsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FocusScreen from '../screens/FocusScreen';
+import CalendarScreen from '../screens/CalendarScreen'; // <-- Import the new screen
 
 const Tab = createMaterialBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -29,6 +30,17 @@ const MainTabs = () => {
           tabBarLabel: 'Home',
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="home-variant" color={color} size={26} />
+          ),
+        }}
+      />
+      {/* Add the new Calendar Tab Screen here */}
+      <Tab.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{
+          tabBarLabel: 'Calendar',
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="calendar-month-outline" color={color} size={26} />
           ),
         }}
       />
