@@ -6,18 +6,17 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { TasksContext } from '../context/TasksContext';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-
-// ... (PriorityButton component remains the same)
+import { scheduleTaskNotification } from '../notifications'; // <-- Import notification scheduler
 
 const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     const theme = useTheme();
     const isSelected = value === selectedValue;
     return (
-        <TouchableOpacity 
+        <TouchableOpacity
             onPress={() => onSelect(value)}
             style={[
                 styles.priorityButton,
-                { 
+                {
                     backgroundColor: isSelected ? color : theme.colors.background,
                     borderColor: isSelected ? color : theme.colors.placeholder,
                 }
@@ -44,7 +43,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
     if (taskToEdit) {
       setTitle(taskToEdit.title);
       setDescription(taskToEdit.description || '');
-      setPriority(taskToEdit.priority || 'Medium');
+      setPriority(taskToToEdit.priority || 'Medium');
       setDueDate(taskToEdit.dueDate?.toDate() || new Date());
       setProjectId(taskToEdit.projectId || null);
     } else {
@@ -61,7 +60,13 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       alert('Title is required!');
       return;
     }
-    onSave({ title, description, priority, dueDate, projectId }); // Add projectId to save data
+    const taskData = { title, description, priority, dueDate, projectId };
+    onSave(taskData);
+    // Schedule a notification for the task
+    scheduleTaskNotification({
+        id: taskToEdit?.id || Date.now().toString(), // Use existing ID or a temporary one
+        ...taskData
+    });
     onClose();
   };
 
@@ -80,7 +85,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
         visible={visible}
         onRequestClose={onClose}
     >
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.centeredView}
       >
@@ -90,17 +95,17 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
             <Text variant="headlineMedium" style={styles.modalTitle}>
               {taskToEdit ? 'Edit Task' : 'New Task'}
             </Text>
-            
+
             <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
             <TextInput label="Description" value={description} onChangeText={setDescription} style={styles.input} multiline mode="outlined" numberOfLines={3} />
-            
+
             {/* Project Selector */}
             <Menu
                 visible={menuVisible}
                 onDismiss={() => setMenuVisible(false)}
                 anchor={
-                    <Button 
-                        onPress={() => setMenuVisible(true)} 
+                    <Button
+                        onPress={() => setMenuVisible(true)}
                         icon={() => <MaterialCommunityIcons name="circle" color={selectedProject.color} size={14} />}
                         mode="outlined"
                         style={styles.input}
@@ -184,4 +189,3 @@ const styles = StyleSheet.create({
 });
 
 export default AddTaskModal;
-

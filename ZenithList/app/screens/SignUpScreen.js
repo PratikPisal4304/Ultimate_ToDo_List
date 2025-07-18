@@ -27,7 +27,11 @@ const SignUpScreen = ({ navigation }) => {
     setError('');
     const { user, error } = await handleSignUp(email, password);
     if (error) {
-      setError("Could not create account. The email might already be in use.");
+        if (error.code === 'auth/email-already-in-use') {
+            setError("The email address is already in use by another account.");
+        } else {
+            setError("Could not create account. Please try again.");
+        }
     } else {
       dispatch({ type: 'SIGN_IN', payload: user });
     }
@@ -35,7 +39,7 @@ const SignUpScreen = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
@@ -44,7 +48,7 @@ const SignUpScreen = ({ navigation }) => {
         <Text variant="displaySmall" style={styles.title}>Create Account</Text>
         <Text variant="bodyLarge" style={{color: theme.colors.placeholder}}>Start your journey</Text>
       </View>
-      
+
       <View style={styles.form}>
         {error ? <Text style={[styles.error, {color: theme.colors.error}]}>{error}</Text> : null}
         <TextInput
@@ -64,10 +68,10 @@ const SignUpScreen = ({ navigation }) => {
             style={styles.input}
             left={<TextInput.Icon icon="lock" />}
         />
-        <Button 
-            mode="contained" 
-            onPress={onSignUp} 
-            loading={loading} 
+        <Button
+            mode="contained"
+            onPress={onSignUp}
+            loading={loading}
             style={styles.button}
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}
@@ -75,7 +79,7 @@ const SignUpScreen = ({ navigation }) => {
             Sign Up
         </Button>
       </View>
-      
+
       <View style={styles.footer}>
         <Button onPress={() => navigation.navigate('Login')}>
             Already have an account? <Text style={{color: theme.colors.primary, fontWeight: 'bold'}}>Login</Text>
