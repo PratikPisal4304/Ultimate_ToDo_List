@@ -1,7 +1,7 @@
 // app/screens/DashboardScreen.js
-import React, { useState, useContext, useEffect, useCallback } from 'react';
+import React, { useState, useContext, useMemo, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme } from 'react-native-paper';
+import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, Searchbar } from 'react-native-paper';
 import { format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
@@ -14,7 +14,7 @@ import AddTaskModal from '../components/AddTaskModal';
 import GamificationHeader from '../components/GamificationHeader';
 import useFilteredTasks from '../hooks/useFilteredTasks';
 
-const DashboardScreen = ({ route, navigation }) => {
+const DashboardScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
   const { tasks, userData, loading } = useContext(TasksContext);
   const theme = useTheme();
@@ -22,24 +22,25 @@ const DashboardScreen = ({ route, navigation }) => {
   const [filter, setFilter] = useState('All');
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
-  const [defaultDate, setDefaultDate] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Use the custom hook for filtering tasks
   const filteredTasks = useFilteredTasks(tasks, filter);
-
-  // Effect to handle editing a task from another screen (e.g., Calendar)
-  useEffect(() => {
-    if (route.params?.taskToEdit) {
-      setTaskToEdit(route.params.taskToEdit);
-      setModalVisible(true);
-      // Clear the param to avoid re-triggering
-      navigation.setParams({ taskToEdit: null });
+  
+  const searchedTasks = useMemo(() => {
+    if (!searchQuery) {
+      return filteredTasks;
     }
-  }, [route.params?.taskToEdit, navigation]);
-
+    return filteredTasks.filter(task => {
+      const query = searchQuery.toLowerCase();
+      const titleMatch = task.title.toLowerCase().includes(query);
+      const descriptionMatch = task.description?.toLowerCase().includes(query);
+      const tagMatch = task.tags?.some(tag => tag.toLowerCase().includes(query));
+      return titleMatch || descriptionMatch || tagMatch;
+    });
+  }, [searchQuery, filteredTasks]);
 
   const handleSaveTask = useCallback(async (taskData) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.MEDIUM);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (taskToEdit) {
       await FirestoreService.updateTask(user.uid, taskToEdit.id, taskData);
     } else {
@@ -49,9 +50,9 @@ const DashboardScreen = ({ route, navigation }) => {
   }, [user, taskToEdit]);
 
   const handleToggleTask = useCallback((task) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.LIGHT);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!task.isCompleted) {
-        FirestoreService.handleCompleteTask(user.uid, task.id, task.priority);
+        FirestoreService.handleCompleteTask(user.uid, task);
     } else {
         FirestoreService.updateTask(user.uid, task.id, { isCompleted: false });
     }
@@ -61,7 +62,7 @@ const DashboardScreen = ({ route, navigation }) => {
     Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.SUCCESS);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           FirestoreService.deleteTask(user.uid, taskId);
       }},
     ]);
@@ -73,9 +74,8 @@ const DashboardScreen = ({ route, navigation }) => {
   }, []);
 
   const openAddModal = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.MEDIUM);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTaskToEdit(null);
-    setDefaultDate(new Date()); // Reset to today for general add
     setModalVisible(true);
   }, []);
 
@@ -109,6 +109,14 @@ const DashboardScreen = ({ route, navigation }) => {
         </Appbar.Header>
         <GamificationHeader userData={userData} />
       </LinearGradient>
+      
+      <Searchbar
+        placeholder="Search tasks, tags, etc..."
+        onChangeText={setSearchQuery}
+        value={searchQuery}
+        style={styles.searchbar}
+        elevation={1}
+      />
 
       <SegmentedButtons
         value={filter}
@@ -126,9 +134,12 @@ const DashboardScreen = ({ route, navigation }) => {
         <ActivityIndicator animating={true} size="large" style={styles.loader} />
       ) : (
         <FlatList
-          data={filteredTasks}
+          data={searchedTasks}
           keyExtractor={(item) => item.id}
           renderItem={renderTaskItem}
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={10}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>All clear! ✅</Text>
@@ -146,7 +157,6 @@ const DashboardScreen = ({ route, navigation }) => {
         onClose={() => setModalVisible(false)}
         onSave={handleSaveTask}
         taskToEdit={taskToEdit}
-        defaultDate={defaultDate}
       />
 
       <FAB
@@ -177,6 +187,10 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     color: 'rgba(255,255,255,0.8)',
+  },
+  searchbar: {
+    marginHorizontal: 16,
+    marginTop: 16,
   },
   filters: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0, elevation: 8 },

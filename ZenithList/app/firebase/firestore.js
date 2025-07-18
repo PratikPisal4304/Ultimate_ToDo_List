@@ -12,6 +12,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { addDays, addWeeks, addMonths } from 'date-fns';
 
 // --- Task Functions ---
 
@@ -60,7 +61,8 @@ export const getUserData = (userId, callback) => {
   return unsubscribe;
 };
 
-export const handleCompleteTask = async (userId, taskId, priority) => {
+export const handleCompleteTask = async (userId, task) => {
+    const { id: taskId, priority, recurrence } = task;
     const userDocRef = doc(db, 'users', userId);
     const taskDocRef = doc(db, 'users', userId, 'tasks', taskId);
     const pointsMap = { 'High': 25, 'Medium': 15, 'Low': 10 };
@@ -70,6 +72,38 @@ export const handleCompleteTask = async (userId, taskId, priority) => {
         await runTransaction(db, async (transaction) => {
             const userDoc = await transaction.get(userDocRef);
             if (!userDoc.exists()) throw "User document does not exist!";
+
+            // If the task is recurring, create the next instance of the task
+            if (recurrence && recurrence.frequency && recurrence.frequency !== 'none') {
+                const taskDoc = await transaction.get(taskDocRef);
+                const taskData = taskDoc.data();
+                let nextDueDate = new Date(taskData.dueDate.toDate());
+
+                const interval = recurrence.interval || 1;
+
+                switch (recurrence.frequency) {
+                    case 'daily':
+                        nextDueDate = addDays(nextDueDate, interval);
+                        break;
+                    case 'weekly':
+                        nextDueDate = addWeeks(nextDueDate, interval);
+                        break;
+                    case 'monthly':
+                        nextDueDate = addMonths(nextDueDate, interval);
+                        break;
+                }
+
+                const newTask = {
+                    ...taskData,
+                    dueDate: nextDueDate,
+                    isCompleted: false,
+                    completedAt: null, // Ensure the new task is not marked as completed
+                    createdAt: serverTimestamp(),
+                };
+
+                const newTasksCol = collection(db, 'users', userId, 'tasks');
+                transaction.set(doc(newTasksCol), newTask);
+            }
             
             transaction.update(taskDocRef, { isCompleted: true, completedAt: serverTimestamp() });
             

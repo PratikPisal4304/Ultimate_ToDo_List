@@ -32,3 +32,24 @@ export const scheduleTaskNotification = async (task) => {
       console.error("Error scheduling notification:", e);
   }
 };
+
+export const scheduleTaskReminder = async (task, reminderDate) => {
+  if (reminderDate < new Date()) {
+      console.log("Cannot schedule reminder for a past date.");
+      return;
+  }
+  
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "🔔 Task Reminder!",
+        body: task.title,
+        data: { taskId: task.id },
+      },
+      trigger: reminderDate,
+    });
+    console.log(`Reminder scheduled for task: ${task.title}`);
+  } catch (e) {
+      console.error("Error scheduling reminder:", e);
+  }
+};

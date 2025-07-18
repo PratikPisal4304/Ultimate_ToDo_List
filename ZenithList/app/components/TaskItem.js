@@ -1,12 +1,11 @@
 // app/components/TaskItem.js
 import React, { useContext } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { List, Checkbox, IconButton, useTheme, Text, Divider } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
-import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
-import SubtaskItem from './SubtaskItem'; // Import the new component
-import * as FirestoreService from '../firebase/firestore'; // For updating subtasks
+import SubtaskItem from './SubtaskItem';
+import * as FirestoreService from '../firebase/firestore';
 import { AuthContext } from '../context/AuthContext';
 
 const priorityColors = {
@@ -22,7 +21,6 @@ const TaskItem = ({ task, onToggle, onDelete, onEdit, onFocus }) => {
   const descriptionText = task.description ? task.description : '';
   const dueDateText = task.dueDate ? `Due ${formatDistanceToNow(task.dueDate.toDate(), { addSuffix: true })}` : '';
 
-  // Subtask Handlers
   const handleToggleSubtask = (subtaskId) => {
     const updatedSubtasks = task.subtasks.map(sub =>
       sub.id === subtaskId ? { ...sub, isCompleted: !sub.isCompleted } : sub
@@ -35,9 +33,12 @@ const TaskItem = ({ task, onToggle, onDelete, onEdit, onFocus }) => {
       FirestoreService.updateTask(user.uid, task.id, { subtasks: updatedSubtasks });
   };
 
-  const renderRightActions = (progress, dragX) => {
-    // ... (This function remains the same)
-  };
+  const renderRightActions = () => (
+    <View style={styles.rightActionContainer}>
+        <IconButton icon="pencil" onPress={onEdit} style={styles.actionButton} iconColor="#fff" backgroundColor={theme.colors.primary}/>
+        <IconButton icon="delete" onPress={onDelete} style={styles.actionButton} iconColor="#fff" backgroundColor={theme.colors.error}/>
+    </View>
+  );
 
   const subtasksExist = task.subtasks && task.subtasks.length > 0;
   const completedSubtasks = subtasksExist ? task.subtasks.filter(s => s.isCompleted).length : 0;
@@ -56,6 +57,15 @@ const TaskItem = ({ task, onToggle, onDelete, onEdit, onFocus }) => {
                 <Text style={styles.subtaskCounter}>
                   {`\nSubtasks: ${completedSubtasks} / ${task.subtasks.length}`}
                 </Text>
+              )}
+              {task.tags && task.tags.length > 0 && (
+                <View style={styles.tagsContainer}>
+                  {task.tags.map(tag => (
+                    <Text key={tag} style={[styles.tag, { backgroundColor: theme.colors.primary + '33', color: theme.colors.primary }]}>
+                      #{tag}
+                    </Text>
+                  ))}
+                </View>
               )}
             </View>
           )}
@@ -105,21 +115,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    borderBottomLeftRadius: 0, // Adjust for subtask container
-    borderBottomRightRadius: 0,
   },
   subtasksContainer: {
     marginHorizontal: 16,
-    marginBottom: 6,
-    marginTop: -6, // Overlap with listItem
     paddingBottom: 8,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   subtaskCounter: {
     fontSize: 12,
@@ -166,7 +167,21 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginHorizontal: 5,
-  }
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  tag: {
+    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
 });
 
 export default React.memo(TaskItem);

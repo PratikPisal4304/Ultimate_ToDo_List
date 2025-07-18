@@ -5,8 +5,9 @@ import { TextInput, Button, Text, useTheme, IconButton, Divider } from 'react-na
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { scheduleTaskNotification } from '../notifications';
+import { scheduleTaskNotification, scheduleTaskReminder } from '../notifications';
 import SubtaskItem from './SubtaskItem';
+import { Picker } from '@react-native-picker/picker';
 
 const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     const theme = useTheme();
@@ -27,7 +28,7 @@ const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     );
 };
 
-const AddTaskModal = ({ visible, onClose, onSave, taskToEdit, defaultDate }) => {
+const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   const theme = useTheme();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -36,25 +37,33 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit, defaultDate }) => 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtask, setNewSubtask] = useState('');
+  const [tags, setTags] = useState('');
+  const [recurrence, setRecurrence] = useState({ frequency: 'none', interval: 1 });
+  const [reminderDate, setReminderDate] = useState(null);
+  const [showReminderPicker, setShowReminderPicker] = useState(false);
 
   useEffect(() => {
-    if (visible) {
-        if (taskToEdit) {
-            setTitle(taskToEdit.title);
-            setDescription(taskToEdit.description || '');
-            setPriority(taskToEdit.priority || 'Medium');
-            setDueDate(taskToEdit.dueDate?.toDate() || defaultDate || new Date());
-            setSubtasks(taskToEdit.subtasks || []);
-        } else {
-            setTitle('');
-            setDescription('');
-            setPriority('Medium');
-            setDueDate(defaultDate || new Date());
-            setSubtasks([]);
-        }
-        setNewSubtask('');
+    if (taskToEdit) {
+      setTitle(taskToEdit.title);
+      setDescription(taskToEdit.description || '');
+      setPriority(taskToEdit.priority || 'Medium');
+      setDueDate(taskToEdit.dueDate?.toDate() || new Date());
+      setSubtasks(taskToEdit.subtasks || []);
+      setTags((taskToEdit.tags || []).join(', '));
+      setRecurrence(taskToEdit.recurrence || { frequency: 'none', interval: 1 });
+      setReminderDate(taskToEdit.reminderDate?.toDate() || null);
+    } else {
+      setTitle('');
+      setDescription('');
+      setPriority('Medium');
+      setDueDate(new Date());
+      setSubtasks([]);
+      setTags('');
+      setRecurrence({ frequency: 'none', interval: 1 });
+      setReminderDate(null);
     }
-  }, [taskToEdit, visible, defaultDate]);
+    setNewSubtask('');
+  }, [taskToEdit, visible]);
 
   const handleAddSubtask = () => {
     if (newSubtask.trim()) {
@@ -76,13 +85,17 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit, defaultDate }) => 
       alert('Title is required!');
       return;
     }
-    const taskData = { title, description, priority, dueDate, subtasks };
+    const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+    const taskData = { title, description, priority, dueDate, subtasks, tags: tagsArray, recurrence, reminderDate };
+    
     onSave(taskData);
 
-    scheduleTaskNotification({
-        id: taskToEdit?.id || Date.now().toString(),
-        ...taskData
-    });
+    const taskId = taskToEdit?.id || Date.now().toString();
+    scheduleTaskNotification({ id: taskId, ...taskData });
+    if (reminderDate) {
+      scheduleTaskReminder({ id: taskId, ...taskData }, reminderDate);
+    }
+    
     onClose();
   };
 
@@ -90,6 +103,13 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit, defaultDate }) => 
     const currentDate = selectedDate || dueDate;
     setShowDatePicker(Platform.OS === 'ios');
     setDueDate(currentDate);
+  };
+  
+  const onReminderDateChange = (event, selectedDate) => {
+    setShowReminderPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setReminderDate(selectedDate);
+    }
   };
 
   return (
@@ -112,6 +132,14 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit, defaultDate }) => 
 
             <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
             <TextInput label="Description" value={description} onChangeText={setDescription} style={styles.input} multiline mode="outlined" numberOfLines={3} />
+            
+            <TextInput 
+              label="Tags (comma-separated)" 
+              value={tags} 
+              onChangeText={setTags} 
+              style={styles.input} 
+              mode="outlined" 
+            />
 
             <Text style={styles.label}>Priority</Text>
             <View style={styles.priorityContainer}>
@@ -126,8 +154,47 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit, defaultDate }) => 
             </TouchableOpacity>
 
             {showDatePicker && (
-              <DateTimePicker value={dueDate} mode="date" display="default" onChange={onDateChange} textColor={theme.colors.text} />
+              <DateTimePicker value={dueDate} mode="date" display="default" onChange={onDateChange} />
             )}
+            
+            <TouchableOpacity onPress={() => setShowReminderPicker(true)} style={[styles.dateButton, {borderColor: theme.colors.placeholder}]}>
+              <MaterialCommunityIcons name="bell-outline" size={20} color={theme.colors.placeholder} style={{marginRight: 10}} />
+              <Text>{reminderDate ? `Reminder: ${format(reminderDate, 'E, MMM d, yyyy h:mm a')}` : 'Add a reminder'}</Text>
+            </TouchableOpacity>
+
+            {showReminderPicker && (
+              <DateTimePicker 
+                value={reminderDate || new Date()} 
+                mode="datetime" 
+                display="default" 
+                onChange={onReminderDateChange} 
+              />
+            )}
+
+            <Text style={styles.label}>Repeat</Text>
+            <View style={[styles.recurrenceContainer, {borderColor: theme.colors.placeholder}]}>
+              <Picker
+                selectedValue={recurrence.frequency}
+                style={{ flex: 1, color: theme.colors.text }}
+                onValueChange={(itemValue) => setRecurrence({ ...recurrence, frequency: itemValue })}
+                dropdownIconColor={theme.colors.placeholder}
+              >
+                <Picker.Item label="Never" value="none" />
+                <Picker.Item label="Daily" value="daily" />
+                <Picker.Item label="Weekly" value="weekly" />
+                <Picker.Item label="Monthly" value="monthly" />
+              </Picker>
+              {recurrence.frequency !== 'none' && (
+                <TextInput
+                  label="Interval"
+                  value={String(recurrence.interval)}
+                  onChangeText={(text) => setRecurrence({ ...recurrence, interval: parseInt(text) || 1 })}
+                  keyboardType="numeric"
+                  style={{ width: 100, marginLeft: 10, backgroundColor: theme.colors.surface }}
+                  mode="outlined"
+                />
+              )}
+            </View>
             
             <Divider style={styles.divider} />
 
@@ -197,6 +264,13 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       marginBottom: 20,
       flexDirection: 'row',
+  },
+  recurrenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderRadius: 4,
   },
   divider: {
       marginVertical: 20,
