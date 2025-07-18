@@ -1,8 +1,8 @@
 // app/screens/DashboardScreen.js
 import React, { useState, useContext, useMemo, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar } from 'react-native-paper';
-import { isToday, isWithinInterval, addDays, format } from 'date-fns';
+import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme } from 'react-native-paper';
+import { format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
 import * as FirestoreService from '../firebase/firestore';
@@ -10,31 +10,8 @@ import * as Haptics from 'expo-haptics';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
-
-// Gamification Header Component - Memoized to prevent re-renders
-const GamificationHeader = React.memo(({ userData }) => {
-    const theme = useTheme();
-    const level = userData?.level || 1;
-    const points = userData?.points || 0;
-    const pointsForNextLevel = level * 100;
-    const pointsInCurrentLevel = points - ((level - 1) * 100);
-    const progress = pointsInCurrentLevel / 100;
-
-    return (
-        <View style={[styles.gamificationBar, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.statBlock}>
-                <Text style={styles.statValue}>LVL {level}</Text>
-                <ProgressBar progress={progress} color={theme.colors.primary} style={styles.progressBar} />
-                <Text style={styles.statLabel}>{pointsInCurrentLevel} / 100 PTS</Text>
-            </View>
-            <View style={styles.statBlock}>
-                <Text style={styles.statValue}>🔥 {userData?.streak || 0}</Text>
-                <Text style={styles.statLabel}>Day Streak</Text>
-            </View>
-        </View>
-    );
-});
-
+import GamificationHeader from '../components/GamificationHeader'; // Import the new component
+import useFilteredTasks from '../hooks/useFilteredTasks'; // Import the custom hook
 
 const DashboardScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -45,24 +22,8 @@ const DashboardScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
 
-  const sortedTasks = useMemo(() =>
-    [...tasks].sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0))
-  , [tasks]);
-  
-  const filteredTasks = useMemo(() => {
-    const now = new Date();
-    switch (filter) {
-      case 'Today':
-        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
-      case 'Upcoming':
-        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isWithinInterval(t.dueDate.toDate(), { start: now, end: addDays(now, 7) }));
-      case 'Completed':
-        return sortedTasks.filter(t => t.isCompleted);
-      case 'All':
-      default:
-        return sortedTasks.filter(t => !t.isCompleted);
-    }
-  }, [sortedTasks, filter]);
+  // Use the custom hook for filtering tasks
+  const filteredTasks = useFilteredTasks(tasks, filter);
 
   const handleSaveTask = useCallback(async (taskData) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -124,6 +85,7 @@ const DashboardScreen = ({ navigation }) => {
         <Appbar.Content title={`Hello, ${user?.email?.split('@')[0] || 'Guest'}`} subtitle={`Today is ${format(new Date(), 'MMMM d')}`} />
       </Appbar.Header>
 
+      {/* Use the dedicated GamificationHeader component */}
       <GamificationHeader userData={userData} />
       
       <SegmentedButtons
@@ -145,13 +107,12 @@ const DashboardScreen = ({ navigation }) => {
           data={filteredTasks}
           keyExtractor={(item) => item.id}
           renderItem={renderTaskItem}
-          // Performance optimizations for FlatList
           initialNumToRender={10}
           maxToRenderPerBatch={5}
           windowSize={10}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>All clear!</Text>
+                <Text style={styles.emptyText}>All clear! ✅</Text>
                 <Text style={styles.emptySubText}>
                     {filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`}
                 </Text>
@@ -178,20 +139,14 @@ const DashboardScreen = ({ navigation }) => {
   );
 };
 
-// Styles remain the same
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  gamificationBar: { flexDirection: 'row', justifyContent: 'space-around', padding: 16, marginHorizontal: 16, borderRadius: 12, marginTop: 8 },
-  statBlock: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 20, fontWeight: 'bold' },
-  statLabel: { fontSize: 12, color: '#A9A9A9', marginTop: 4 },
-  progressBar: { width: '80%', marginTop: 8, height: 6, borderRadius: 3 },
   filters: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { alignItems: 'center', marginTop: 80 },
+  emptyContainer: { alignItems: 'center', marginTop: 80, paddingHorizontal: 20 },
   emptyText: { fontSize: 22, fontWeight: 'bold' },
-  emptySubText: { fontSize: 16, color: '#A9A9A9', marginTop: 8 },
+  emptySubText: { fontSize: 16, color: '#A9A9A9', marginTop: 8, textAlign: 'center' },
 });
 
 export default DashboardScreen;
