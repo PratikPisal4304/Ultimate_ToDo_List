@@ -43,7 +43,8 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
     if (taskToEdit) {
       setTitle(taskToEdit.title);
       setDescription(taskToEdit.description || '');
-      setPriority(taskToToEdit.priority || 'Medium');
+      // Corrected the typo in the line below
+      setPriority(taskToEdit.priority || 'Medium');
       setDueDate(taskToEdit.dueDate?.toDate() || new Date());
       setProjectId(taskToEdit.projectId || null);
     } else {
