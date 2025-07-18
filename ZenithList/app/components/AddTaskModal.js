@@ -1,12 +1,13 @@
 // app/components/AddTaskModal.js
 import React, { useState, useEffect, useContext } from 'react';
-import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
-import { TextInput, Button, Text, useTheme, IconButton, Menu } from 'react-native-paper';
+import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView, FlatList } from 'react-native';
+import { TextInput, Button, Text, useTheme, IconButton, Menu, Divider } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { TasksContext } from '../context/TasksContext';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { scheduleTaskNotification } from '../notifications'; // <-- Import notification scheduler
+import { scheduleTaskNotification } from '../notifications';
+import SubtaskItem from './SubtaskItem'; // Import the new component
 
 const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     const theme = useTheme();
@@ -27,45 +28,69 @@ const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     );
 };
 
-
 const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   const theme = useTheme();
-  const { projects } = useContext(TasksContext); // Get projects from context
+  const { projects } = useContext(TasksContext);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState(new Date());
-  const [projectId, setProjectId] = useState(null); // New state for project ID
+  const [projectId, setProjectId] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  // New state for subtasks
+  const [subtasks, setSubtasks] = useState([]);
+  const [newSubtask, setNewSubtask] = useState('');
 
   useEffect(() => {
     if (taskToEdit) {
       setTitle(taskToEdit.title);
       setDescription(taskToEdit.description || '');
-      // Corrected the typo in the line below
       setPriority(taskToEdit.priority || 'Medium');
       setDueDate(taskToEdit.dueDate?.toDate() || new Date());
       setProjectId(taskToEdit.projectId || null);
+      setSubtasks(taskToEdit.subtasks || []); // Load existing subtasks
     } else {
       setTitle('');
       setDescription('');
       setPriority('Medium');
       setDueDate(new Date());
       setProjectId(null);
+      setSubtasks([]); // Reset subtasks for new task
     }
+    setNewSubtask(''); // Always reset new subtask input
   }, [taskToEdit, visible]);
+
+  const handleAddSubtask = () => {
+    if (newSubtask.trim()) {
+        setSubtasks([...subtasks, { id: Date.now().toString(), title: newSubtask.trim(), isCompleted: false }]);
+        setNewSubtask('');
+    }
+  };
+
+  const handleToggleSubtask = (id) => {
+    setSubtasks(
+        subtasks.map(sub =>
+            sub.id === id ? { ...sub, isCompleted: !sub.isCompleted } : sub
+        )
+    );
+  };
+
+  const handleDeleteSubtask = (id) => {
+    setSubtasks(subtasks.filter(sub => sub.id !== id));
+  };
 
   const handleSave = () => {
     if (!title) {
       alert('Title is required!');
       return;
     }
-    const taskData = { title, description, priority, dueDate, projectId };
+    // Include subtasks in the data to be saved
+    const taskData = { title, description, priority, dueDate, projectId, subtasks };
     onSave(taskData);
-    // Schedule a notification for the task
+
     scheduleTaskNotification({
-        id: taskToEdit?.id || Date.now().toString(), // Use existing ID or a temporary one
+        id: taskToEdit?.id || Date.now().toString(),
         ...taskData
     });
     onClose();
@@ -100,7 +125,6 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
             <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
             <TextInput label="Description" value={description} onChangeText={setDescription} style={styles.input} multiline mode="outlined" numberOfLines={3} />
 
-            {/* Project Selector */}
             <Menu
                 visible={menuVisible}
                 onDismiss={() => setMenuVisible(false)}
@@ -137,6 +161,28 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
             {showDatePicker && (
               <DateTimePicker value={dueDate} mode="date" display="default" onChange={onDateChange} textColor={theme.colors.text} />
             )}
+            
+            <Divider style={styles.divider} />
+
+            {/* Subtasks Section */}
+            <Text style={styles.label}>Subtasks</Text>
+            {subtasks.map(item => (
+                 <SubtaskItem
+                    key={item.id}
+                    subtask={item}
+                    onToggle={() => handleToggleSubtask(item.id)}
+                    onDelete={() => handleDeleteSubtask(item.id)}
+                />
+            ))}
+            <TextInput
+                label="Add a subtask..."
+                value={newSubtask}
+                onChangeText={setNewSubtask}
+                style={styles.input}
+                mode="outlined"
+                right={<TextInput.Icon icon="plus" onPress={handleAddSubtask} />}
+                onSubmitEditing={handleAddSubtask}
+            />
 
             <Button mode="contained" onPress={handleSave} style={styles.saveButton} contentStyle={styles.buttonContent} labelStyle={styles.buttonLabel}>
               {taskToEdit ? 'Update Task' : 'Create Task'}
@@ -151,7 +197,6 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
 const styles = StyleSheet.create({
   centeredView: { flex: 1, justifyContent: 'flex-end' },
   modalView: {
-    backgroundColor: '#1E1E1E',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 25,
@@ -168,7 +213,7 @@ const styles = StyleSheet.create({
   closeButton: { position: 'absolute', top: 10, right: 10 },
   modalTitle: { marginBottom: 25, textAlign: 'center', fontWeight: 'bold' },
   input: { marginBottom: 15, width: '100%' },
-  label: { alignSelf: 'flex-start', marginLeft: 5, marginBottom: 8, color: '#A9A9A9', fontSize: 16 },
+  label: { alignSelf: 'flex-start', marginLeft: 5, marginBottom: 8, fontSize: 16, opacity: 0.7 },
   priorityContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   priorityButton: {
       flex: 1,
@@ -187,7 +232,10 @@ const styles = StyleSheet.create({
       marginBottom: 20,
       flexDirection: 'row',
   },
-  saveButton: { borderRadius: 30 },
+  divider: {
+      marginVertical: 20,
+  },
+  saveButton: { borderRadius: 30, marginTop: 20 },
   buttonContent: { paddingVertical: 8 },
   buttonLabel: { fontSize: 16, fontWeight: 'bold' },
 });
