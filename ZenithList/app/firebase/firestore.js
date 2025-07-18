@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   getDoc,
   runTransaction,
-  writeBatch
+  writeBatch,
+  getDocs // Correctly added getDocs
 } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 

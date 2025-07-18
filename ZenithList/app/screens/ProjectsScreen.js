@@ -51,9 +51,18 @@ const ProjectsScreen = () => {
             "This will also delete all tasks within this project. This action cannot be undone.",
             [
                 { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: () => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    FirestoreService.deleteProject(user.uid, projectId);
+                { 
+                    text: "Delete", 
+                    style: "destructive", 
+                    // Corrected: Make the onPress handler async and await the firestore call
+                    onPress: async () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        try {
+                            await FirestoreService.deleteProject(user.uid, projectId);
+                        } catch (error) {
+                            console.error("Failed to delete project:", error);
+                            Alert.alert("Error", "Could not delete the project. Please try again.");
+                        }
                 }},
             ]
         );
