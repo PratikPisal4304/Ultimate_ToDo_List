@@ -4,8 +4,8 @@ import { Modal, View, StyleSheet, KeyboardAvoidingView, ScrollView, Platform, To
 import { TextInput, Button, Text, useTheme, IconButton } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const ICON_CHOICES = ['briefcase', 'home', 'cart', 'book-open-variant', 'dumbbell', 'heart', 'star', 'flag'];
-const COLOR_CHOICES = ['#6A5ACD', '#FF6347', '#32CD32', '#FFD700', '#00BFFF', '#FF69B4', '#9370DB'];
+const ICON_CHOICES = ['briefcase', 'home', 'cart', 'book-open-variant', 'dumbbell', 'heart', 'star', 'flag', 'leaf', 'trophy', 'lightbulb-on', 'music-note'];
+const COLOR_CHOICES = ['#6A5ACD', '#FF6347', '#32CD32', '#FFD700', '#00BFFF', '#FF69B4', '#9370DB', '#4682B4', '#FFA07A', '#20B2AA', '#DB7093', '#F4A460'];
 
 const AddProjectModal = ({ visible, onClose, onSave, projectToEdit }) => {
     const theme = useTheme();
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     choiceContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
         marginBottom: 25
     },
     iconChoice: {
@@ -120,13 +120,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        marginBottom: 10
+        marginBottom: 10,
+        marginHorizontal: 5
     },
     colorChoice: {
         width: 40,
         height: 40,
         borderRadius: 20,
         borderWidth: 3,
+        margin: 5
     },
     saveButton: { borderRadius: 30, marginTop: 10 },
     buttonContent: { paddingVertical: 8 },

@@ -1,63 +1,115 @@
 // app/screens/FocusScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, AppState } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text, Button, useTheme, IconButton } from 'react-native-paper';
 import { useKeepAwake } from 'expo-keep-awake';
+import { AnimatedCircularProgress } from 'react-native-circular-progress';
+import * as Haptics from 'expo-haptics';
 
-const FOCUS_TIME_MINUTES = 25;
+const FOCUS_TIME_SECONDS = 25 * 60; // 25 minutes in seconds
 
 const FocusScreen = ({ route, navigation }) => {
-  useKeepAwake(); // Prevents the screen from sleeping
+  useKeepAwake();
+  const theme = useTheme();
   const { task } = route.params;
-  const [minutes, setMinutes] = useState(FOCUS_TIME_MINUTES);
-  const [seconds, setSeconds] = useState(0);
-  const [isActive, setIsActive] = useState(true);
-  
+
+  const [totalSeconds, setTotalSeconds] = useState(FOCUS_TIME_SECONDS);
+  const [isActive, setIsActive] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+
   const intervalRef = useRef(null);
 
-  useEffect(() => {
-    if (isActive) {
-      intervalRef.current = setInterval(() => {
-        setSeconds((s) => {
-          if (s === 0) {
-            setMinutes((m) => {
-              if (m === 0) {
-                // Timer finished
-                clearInterval(intervalRef.current);
-                setIsActive(false);
-                alert("Focus session complete! Time to take a break.");
-                // Here you could play a sound
-                return 0;
-              }
-              return m - 1;
-            });
-            return 59;
-          }
-          return s - 1;
-        });
-      }, 1000);
-    } else {
+  const cleanupInterval = () => {
+    if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-
-    return () => clearInterval(intervalRef.current);
-  }, [isActive]);
-  
-  const stopSession = () => {
-    clearInterval(intervalRef.current);
-    navigation.goBack();
   };
 
+  useEffect(() => {
+    if (isActive && totalSeconds > 0) {
+      intervalRef.current = setInterval(() => {
+        setTotalSeconds((seconds) => seconds - 1);
+      }, 1000);
+    } else if (totalSeconds === 0 && !isFinished) {
+      setIsActive(false);
+      setIsFinished(true);
+      cleanupInterval();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // You could play a sound or show a completion message here
+    }
+
+    return cleanupInterval;
+  }, [isActive, totalSeconds, isFinished]);
+
+  const toggleTimer = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsActive(!isActive);
+    if(isFinished) setIsFinished(false);
+  }, [isActive, isFinished]);
+
+  const resetTimer = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    cleanupInterval();
+    setIsActive(false);
+    setIsFinished(false);
+    setTotalSeconds(FOCUS_TIME_SECONDS);
+  }, []);
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const progress = ((FOCUS_TIME_SECONDS - totalSeconds) / FOCUS_TIME_SECONDS) * 100;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.taskTitle}>Focusing on:</Text>
-      <Text style={styles.taskName}>{task.title}</Text>
-      <Text style={styles.timer}>
-        {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-      </Text>
-      <Button mode="outlined" onPress={stopSession} style={styles.stopButton}>
-        Stop Session
-      </Button>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <IconButton
+        icon="close"
+        size={30}
+        onPress={() => navigation.goBack()}
+        style={styles.closeButton}
+        iconColor={theme.colors.placeholder}
+      />
+      <View style={styles.content}>
+        <Text style={styles.taskTitle}>Focusing on:</Text>
+        <Text style={styles.taskName}>{task.title}</Text>
+
+        <AnimatedCircularProgress
+          size={280}
+          width={15}
+          fill={progress}
+          tintColor={isFinished ? theme.colors.disabled : theme.colors.primary}
+          backgroundColor={theme.colors.surface}
+          padding={10}
+          rotation={0}
+          lineCap="round"
+        >
+          {() => (
+            <Text style={styles.timer}>
+              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            </Text>
+          )}
+        </AnimatedCircularProgress>
+
+        <View style={styles.controls}>
+          <Button
+            mode="outlined"
+            onPress={resetTimer}
+            style={styles.controlButton}
+            labelStyle={styles.controlButtonLabel}
+          >
+            Reset
+          </Button>
+          <Button
+            mode="contained"
+            onPress={toggleTimer}
+            style={[styles.controlButton, { backgroundColor: isActive ? theme.colors.error : theme.colors.primary }]}
+            labelStyle={styles.controlButtonLabel}
+            icon={isActive ? 'pause' : 'play'}
+          >
+            {isFinished ? 'Start Again' : (isActive ? 'Pause' : 'Start')}
+          </Button>
+        </View>
+      </View>
     </View>
   );
 };
@@ -65,9 +117,17 @@ const FocusScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1,
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#121212',
     padding: 20,
   },
   taskTitle: {
@@ -79,17 +139,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     fontWeight: 'bold',
-    marginBottom: 40,
-  },
-  timer: {
-    fontSize: 90,
-    fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 60,
   },
-  stopButton: {
-    borderColor: '#ff4d4d',
+  timer: {
+    fontSize: 70,
+    fontWeight: 'bold',
+    color: '#fff',
   },
+  controls: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 60,
+    width: '100%',
+  },
+  controlButton: {
+    width: '45%',
+    borderRadius: 30,
+  },
+  controlButtonLabel: {
+    fontSize: 18,
+    paddingVertical: 8,
+  }
 });
 
 export default FocusScreen;
