@@ -1,17 +1,18 @@
 // app/screens/DashboardScreen.js
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
 import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar } from 'react-native-paper';
 import { isToday, isWithinInterval, addDays, format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
 import * as FirestoreService from '../firebase/firestore';
+import * as Haptics from 'expo-haptics';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
 
-// Gamification Header Component
-const GamificationHeader = ({ userData }) => {
+// Gamification Header Component - Memoized to prevent re-renders
+const GamificationHeader = React.memo(({ userData }) => {
     const theme = useTheme();
     const level = userData?.level || 1;
     const points = userData?.points || 0;
@@ -32,7 +33,7 @@ const GamificationHeader = ({ userData }) => {
             </View>
         </View>
     );
-};
+});
 
 
 const DashboardScreen = ({ navigation }) => {
@@ -44,10 +45,12 @@ const DashboardScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
 
+  const sortedTasks = useMemo(() =>
+    [...tasks].sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0))
+  , [tasks]);
+  
   const filteredTasks = useMemo(() => {
     const now = new Date();
-    const sortedTasks = tasks.sort((a,b) => (a.createdAt?.toDate() || 0) < (b.createdAt?.toDate() || 0) ? 1 : -1);
-
     switch (filter) {
       case 'Today':
         return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
@@ -59,46 +62,62 @@ const DashboardScreen = ({ navigation }) => {
       default:
         return sortedTasks.filter(t => !t.isCompleted);
     }
-  }, [tasks, filter]);
+  }, [sortedTasks, filter]);
 
-  const handleSaveTask = async (taskData) => {
+  const handleSaveTask = useCallback(async (taskData) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (taskToEdit) {
       await FirestoreService.updateTask(user.uid, taskToEdit.id, taskData);
     } else {
       await FirestoreService.addTask(user.uid, taskData);
     }
     setTaskToEdit(null);
-  };
+  }, [user, taskToEdit]);
 
-  const handleToggleTask = async (task) => {
+  const handleToggleTask = useCallback((task) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!task.isCompleted) {
-        await FirestoreService.handleCompleteTask(user.uid, task.id, task.priority);
+        FirestoreService.handleCompleteTask(user.uid, task.id, task.priority);
     } else {
-        await FirestoreService.updateTask(user.uid, task.id, { isCompleted: false });
+        FirestoreService.updateTask(user.uid, task.id, { isCompleted: false });
     }
-  };
+  }, [user]);
 
-  const handleDeleteTask = (taskId) => {
+  const handleDeleteTask = useCallback((taskId) => {
     Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => FirestoreService.deleteTask(user.uid, taskId) },
+      { text: "Delete", style: "destructive", onPress: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          FirestoreService.deleteTask(user.uid, taskId);
+      }},
     ]);
-  };
-
-  const openEditModal = (task) => {
+  }, [user]);
+  
+  const openEditModal = useCallback((task) => {
     setTaskToEdit(task);
     setModalVisible(true);
-  };
+  }, []);
 
-  const openAddModal = () => {
+  const openAddModal = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTaskToEdit(null);
     setModalVisible(true);
-  };
+  }, []);
 
-  const startFocusSession = (task) => {
+  const startFocusSession = useCallback((task) => {
       navigation.navigate('Focus', { task });
-  };
+  }, [navigation]);
 
+  const renderTaskItem = useCallback(({ item }) => (
+    <TaskItem
+        task={item}
+        onToggle={() => handleToggleTask(item)}
+        onDelete={() => handleDeleteTask(item.id)}
+        onEdit={() => openEditModal(item)}
+        onFocus={() => startFocusSession(item)}
+    />
+  ), [handleToggleTask, handleDeleteTask, openEditModal, startFocusSession]);
+  
   return (
     <View style={styles.container}>
       <Appbar.Header style={{backgroundColor: theme.colors.background}}>
@@ -106,7 +125,7 @@ const DashboardScreen = ({ navigation }) => {
       </Appbar.Header>
 
       <GamificationHeader userData={userData} />
-
+      
       <SegmentedButtons
         value={filter}
         onValueChange={setFilter}
@@ -125,15 +144,11 @@ const DashboardScreen = ({ navigation }) => {
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TaskItem
-              task={item}
-              onToggle={() => handleToggleTask(item)}
-              onDelete={() => handleDeleteTask(item.id)}
-              onEdit={() => openEditModal(item)}
-              onFocus={() => startFocusSession(item)}
-            />
-          )}
+          renderItem={renderTaskItem}
+          // Performance optimizations for FlatList
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={10}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>All clear!</Text>
@@ -152,7 +167,7 @@ const DashboardScreen = ({ navigation }) => {
         onSave={handleSaveTask}
         taskToEdit={taskToEdit}
       />
-
+      
       <FAB
         icon="plus"
         style={[styles.fab, {backgroundColor: theme.colors.primary}]}
@@ -163,6 +178,7 @@ const DashboardScreen = ({ navigation }) => {
   );
 };
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: { flex: 1 },
   gamificationBar: { flexDirection: 'row', justifyContent: 'space-around', padding: 16, marginHorizontal: 16, borderRadius: 12, marginTop: 8 },

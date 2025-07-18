@@ -1,14 +1,14 @@
 // app/screens/ProjectsScreen.js
-import React, { useContext, useState, useCallback } from 'react';
+import React, { useContext, useState, useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
 import { Text, FAB, List, useTheme, Appbar, ActivityIndicator, Button } from 'react-native-paper';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
 import * as FirestoreService from '../firebase/firestore';
 import * as Haptics from 'expo-haptics';
-import AddProjectModal from '../components/AddProjectModal'; // We will create this next
+import AddProjectModal from '../components/AddProjectModal';
 
-const ProjectItem = ({ project, taskCount, onEdit, onDelete }) => {
+const ProjectItem = React.memo(({ project, taskCount, onEdit, onDelete }) => {
     const theme = useTheme();
     return (
         <List.Item
@@ -25,7 +25,7 @@ const ProjectItem = ({ project, taskCount, onEdit, onDelete }) => {
             style={[styles.projectItem, {backgroundColor: theme.colors.surface}]}
         />
     );
-};
+});
 
 
 const ProjectsScreen = () => {
@@ -34,6 +34,16 @@ const ProjectsScreen = () => {
     const theme = useTheme();
     const [modalVisible, setModalVisible] = useState(false);
     const [projectToEdit, setProjectToEdit] = useState(null);
+
+    const taskCounts = useMemo(() => {
+        const counts = {};
+        tasks.forEach(task => {
+            if (task.projectId) {
+                counts[task.projectId] = (counts[task.projectId] || 0) + 1;
+            }
+        });
+        return counts;
+    }, [tasks]);
 
     const handleSaveProject = useCallback(async (projectData) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -51,36 +61,35 @@ const ProjectsScreen = () => {
             "This will also delete all tasks within this project. This action cannot be undone.",
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Delete", 
-                    style: "destructive", 
-                    // Corrected: Make the onPress handler async and await the firestore call
-                    onPress: async () => {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                        try {
-                            await FirestoreService.deleteProject(user.uid, projectId);
-                        } catch (error) {
-                            console.error("Failed to delete project:", error);
-                            Alert.alert("Error", "Could not delete the project. Please try again.");
-                        }
+                { text: "Delete", style: "destructive", onPress: () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    FirestoreService.deleteProject(user.uid, projectId);
                 }},
             ]
         );
     }, [user]);
 
-    const openEditModal = (project) => {
+    const openEditModal = useCallback((project) => {
         setProjectToEdit(project);
         setModalVisible(true);
-    };
+    }, []);
     
-    const openAddModal = () => {
+    const openAddModal = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setProjectToEdit(null);
         setModalVisible(true);
-    };
+    }, []);
 
-    // Filter out the default "All Tasks" project from being editable/deletable
-    const userProjects = projects.filter(p => p.id !== 'all');
+    const userProjects = useMemo(() => projects.filter(p => p.id !== 'all'), [projects]);
+
+    const renderProjectItem = useCallback(({ item }) => (
+        <ProjectItem 
+            project={item} 
+            taskCount={taskCounts[item.id] || 0}
+            onEdit={() => openEditModal(item)}
+            onDelete={() => handleDeleteProject(item.id, item.name)}
+        />
+    ), [taskCounts, openEditModal, handleDeleteProject]);
 
     return (
         <View style={styles.container}>
@@ -94,17 +103,7 @@ const ProjectsScreen = () => {
                 <FlatList
                     data={userProjects}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => {
-                        const taskCount = tasks.filter(t => t.projectId === item.id).length;
-                        return (
-                            <ProjectItem 
-                                project={item} 
-                                taskCount={taskCount}
-                                onEdit={() => openEditModal(item)}
-                                onDelete={() => handleDeleteProject(item.id, item.name)}
-                            />
-                        )
-                    }}
+                    renderItem={renderProjectItem}
                     ListEmptyComponent={<Text style={styles.emptyText}>Create a project to get started.</Text>}
                     contentContainerStyle={{padding: 16}}
                 />
@@ -127,6 +126,7 @@ const ProjectsScreen = () => {
     );
 };
 
+// Styles remain the same
 const styles = StyleSheet.create({
     container: { flex: 1 },
     fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },

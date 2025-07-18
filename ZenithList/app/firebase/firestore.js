@@ -10,7 +10,7 @@ import {
   onSnapshot,
   serverTimestamp,
   getDoc,
-  getDocs, // <-- Import getDocs
+  getDocs, // Import getDocs
   runTransaction,
   writeBatch
 } from 'firebase/firestore';
@@ -79,18 +79,18 @@ export const updateProject = (userId, projectId, updates) => {
 export const deleteProject = async (userId, projectId) => {
     const projectDocRef = doc(db, 'users', userId, 'projects', projectId);
     const tasksQuery = query(collection(db, 'users', userId, 'tasks'), where('projectId', '==', projectId));
-
+    
     const batch = writeBatch(db);
-
+    
     // Get all tasks in the project and add their deletion to the batch
     const tasksSnapshot = await getDocs(tasksQuery);
     tasksSnapshot.forEach(taskDoc => {
         batch.delete(taskDoc.ref);
     });
-
+    
     // Add the project deletion to the batch
     batch.delete(projectDocRef);
-
+    
     // Commit the batch
     return batch.commit();
 };
@@ -120,16 +120,16 @@ export const handleCompleteTask = async (userId, taskId, priority) => {
         await runTransaction(db, async (transaction) => {
             const userDoc = await transaction.get(userDocRef);
             if (!userDoc.exists()) throw "User document does not exist!";
-
+            
             transaction.update(taskDocRef, { isCompleted: true, completedAt: serverTimestamp() });
-
+            
             const userData = userDoc.data();
             const newPoints = (userData.points || 0) + pointsToAdd;
             const newLevel = Math.floor(newPoints / 100) + 1;
             let newStreak = userData.streak || 0;
             const lastCompletion = userData.lastCompletionDate?.toDate();
             const now = new Date();
-
+            
             if (lastCompletion) {
                 const isSameDay = now.toDateString() === lastCompletion.toDateString();
                 const yesterday = new Date();
@@ -145,7 +145,7 @@ export const handleCompleteTask = async (userId, taskId, priority) => {
                 newStreak = 1;
             }
 
-            transaction.update(userDocRef, {
+            transaction.update(userDocRef, { 
                 points: newPoints,
                 level: newLevel,
                 streak: newStreak,

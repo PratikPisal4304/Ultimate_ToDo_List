@@ -84,5 +84,4 @@ const styles = StyleSheet.create({
   }
 });
 
-// Optimization: Memoize the component to prevent unnecessary re-renders
 export default React.memo(TaskItem);
