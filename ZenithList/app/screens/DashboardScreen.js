@@ -1,7 +1,7 @@
 // app/screens/DashboardScreen.js
 import React, { useState, useContext, useMemo } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar } from 'react-native-paper';
+import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar, Searchbar } from 'react-native-paper';
 import { isToday, isWithinInterval, addDays, format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
@@ -41,25 +41,44 @@ const DashboardScreen = ({ navigation }) => {
   const theme = useTheme();
 
   const [filter, setFilter] = useState('All'); // All, Today, Upcoming, Completed
+  const [searchQuery, setSearchQuery] = useState(''); // New state for search
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
-  
+
   const filteredTasks = useMemo(() => {
     const now = new Date();
-    const sortedTasks = tasks.sort((a,b) => (a.createdAt?.toDate() || 0) < (b.createdAt?.toDate() || 0) ? 1 : -1);
+    // Start with all tasks and sort them
+    let sortedTasks = tasks.sort((a,b) => (a.createdAt?.toDate() || 0) < (b.createdAt?.toDate() || 0) ? 1 : -1);
 
+    // Apply the primary filter (All, Today, etc.)
+    let primarilyFilteredTasks;
     switch (filter) {
       case 'Today':
-        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
+        primarilyFilteredTasks = sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
+        break;
       case 'Upcoming':
-        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isWithinInterval(t.dueDate.toDate(), { start: now, end: addDays(now, 7) }));
+        primarilyFilteredTasks = sortedTasks.filter(t => !t.isCompleted && t.dueDate && isWithinInterval(t.dueDate.toDate(), { start: now, end: addDays(now, 7) }));
+        break;
       case 'Completed':
-        return sortedTasks.filter(t => t.isCompleted);
+         primarilyFilteredTasks = sortedTasks.filter(t => t.isCompleted);
+        break;
       case 'All':
       default:
-        return sortedTasks.filter(t => !t.isCompleted);
+        primarilyFilteredTasks = sortedTasks.filter(t => !t.isCompleted);
+        break;
     }
-  }, [tasks, filter]);
+
+    // Apply the search query filter on top of the primary filter
+    if (searchQuery.trim() !== '') {
+        const lowercasedQuery = searchQuery.toLowerCase();
+        return primarilyFilteredTasks.filter(task => 
+            task.title.toLowerCase().includes(lowercasedQuery) ||
+            (task.description && task.description.toLowerCase().includes(lowercasedQuery))
+        );
+    }
+
+    return primarilyFilteredTasks;
+  }, [tasks, filter, searchQuery]); // Add searchQuery to dependency array
 
   const handleSaveTask = async (taskData) => {
     if (taskToEdit) {
@@ -107,6 +126,17 @@ const DashboardScreen = ({ navigation }) => {
 
       <GamificationHeader userData={userData} />
       
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Searchbar
+            placeholder="Search tasks..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={styles.searchbar}
+            icon="magnify"
+        />
+      </View>
+
       <SegmentedButtons
         value={filter}
         onValueChange={setFilter}
@@ -136,9 +166,9 @@ const DashboardScreen = ({ navigation }) => {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>All clear!</Text>
+                <Text style={styles.emptyText}>{searchQuery ? "No matches found" : "All clear!"}</Text>
                 <Text style={styles.emptySubText}>
-                    {filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`}
+                    {searchQuery ? `No tasks match "${searchQuery}"` : (filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`)}
                 </Text>
             </View>
           }
@@ -170,12 +200,19 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: 'bold' },
   statLabel: { fontSize: 12, color: '#A9A9A9', marginTop: 4 },
   progressBar: { width: '80%', marginTop: 8, height: 6, borderRadius: 3 },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  searchbar: {
+    borderRadius: 12,
+  },
   filters: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { alignItems: 'center', marginTop: 80 },
+  emptyContainer: { alignItems: 'center', marginTop: 80, paddingHorizontal: 20 },
   emptyText: { fontSize: 22, fontWeight: 'bold' },
-  emptySubText: { fontSize: 16, color: '#A9A9A9', marginTop: 8 },
+  emptySubText: { fontSize: 16, color: '#A9A9A9', marginTop: 8, textAlign: 'center' },
 });
 
 export default DashboardScreen;
