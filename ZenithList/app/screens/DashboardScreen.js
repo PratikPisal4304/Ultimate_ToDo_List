@@ -1,7 +1,7 @@
 // app/screens/DashboardScreen.js
 import React, { useState, useContext, useMemo } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar, Searchbar } from 'react-native-paper';
+import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme } from 'react-native-paper';
 import { isToday, isWithinInterval, addDays, format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
@@ -9,31 +9,7 @@ import * as FirestoreService from '../firebase/firestore';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
-
-// Gamification Header Component
-const GamificationHeader = ({ userData }) => {
-    const theme = useTheme();
-    const level = userData?.level || 1;
-    const points = userData?.points || 0;
-    const pointsForNextLevel = level * 100;
-    const pointsInCurrentLevel = points - ((level - 1) * 100);
-    const progress = pointsInCurrentLevel / 100;
-
-    return (
-        <View style={[styles.gamificationBar, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.statBlock}>
-                <Text style={styles.statValue}>LVL {level}</Text>
-                <ProgressBar progress={progress} color={theme.colors.primary} style={styles.progressBar} />
-                <Text style={styles.statLabel}>{pointsInCurrentLevel} / 100 PTS</Text>
-            </View>
-            <View style={styles.statBlock}>
-                <Text style={styles.statValue}>🔥 {userData?.streak || 0}</Text>
-                <Text style={styles.statLabel}>Day Streak</Text>
-            </View>
-        </View>
-    );
-};
-
+import GamificationHeader from '../components/GamificationHeader'; // Import the new component
 
 const DashboardScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -41,44 +17,25 @@ const DashboardScreen = ({ navigation }) => {
   const theme = useTheme();
 
   const [filter, setFilter] = useState('All'); // All, Today, Upcoming, Completed
-  const [searchQuery, setSearchQuery] = useState(''); // New state for search
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
-
+  
   const filteredTasks = useMemo(() => {
     const now = new Date();
-    // Start with all tasks and sort them
-    let sortedTasks = tasks.sort((a,b) => (a.createdAt?.toDate() || 0) < (b.createdAt?.toDate() || 0) ? 1 : -1);
+    const sortedTasks = tasks.sort((a,b) => (a.createdAt?.toDate() || 0) < (b.createdAt?.toDate() || 0) ? 1 : -1);
 
-    // Apply the primary filter (All, Today, etc.)
-    let primarilyFilteredTasks;
     switch (filter) {
       case 'Today':
-        primarilyFilteredTasks = sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
-        break;
+        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
       case 'Upcoming':
-        primarilyFilteredTasks = sortedTasks.filter(t => !t.isCompleted && t.dueDate && isWithinInterval(t.dueDate.toDate(), { start: now, end: addDays(now, 7) }));
-        break;
+        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isWithinInterval(t.dueDate.toDate(), { start: now, end: addDays(now, 7) }));
       case 'Completed':
-         primarilyFilteredTasks = sortedTasks.filter(t => t.isCompleted);
-        break;
+        return sortedTasks.filter(t => t.isCompleted);
       case 'All':
       default:
-        primarilyFilteredTasks = sortedTasks.filter(t => !t.isCompleted);
-        break;
+        return sortedTasks.filter(t => !t.isCompleted);
     }
-
-    // Apply the search query filter on top of the primary filter
-    if (searchQuery.trim() !== '') {
-        const lowercasedQuery = searchQuery.toLowerCase();
-        return primarilyFilteredTasks.filter(task => 
-            task.title.toLowerCase().includes(lowercasedQuery) ||
-            (task.description && task.description.toLowerCase().includes(lowercasedQuery))
-        );
-    }
-
-    return primarilyFilteredTasks;
-  }, [tasks, filter, searchQuery]); // Add searchQuery to dependency array
+  }, [tasks, filter]);
 
   const handleSaveTask = async (taskData) => {
     if (taskToEdit) {
@@ -126,17 +83,6 @@ const DashboardScreen = ({ navigation }) => {
 
       <GamificationHeader userData={userData} />
       
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Searchbar
-            placeholder="Search tasks..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchbar}
-            icon="magnify"
-        />
-      </View>
-
       <SegmentedButtons
         value={filter}
         onValueChange={setFilter}
@@ -166,9 +112,9 @@ const DashboardScreen = ({ navigation }) => {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>{searchQuery ? "No matches found" : "All clear!"}</Text>
+                <Text style={styles.emptyText}>All clear!</Text>
                 <Text style={styles.emptySubText}>
-                    {searchQuery ? `No tasks match "${searchQuery}"` : (filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`)}
+                    {filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`}
                 </Text>
             </View>
           }
@@ -195,24 +141,12 @@ const DashboardScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  gamificationBar: { flexDirection: 'row', justifyContent: 'space-around', padding: 16, marginHorizontal: 16, borderRadius: 12, marginTop: 8 },
-  statBlock: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 20, fontWeight: 'bold' },
-  statLabel: { fontSize: 12, color: '#A9A9A9', marginTop: 4 },
-  progressBar: { width: '80%', marginTop: 8, height: 6, borderRadius: 3 },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  searchbar: {
-    borderRadius: 12,
-  },
   filters: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { alignItems: 'center', marginTop: 80, paddingHorizontal: 20 },
+  emptyContainer: { alignItems: 'center', marginTop: 80 },
   emptyText: { fontSize: 22, fontWeight: 'bold' },
-  emptySubText: { fontSize: 16, color: '#A9A9A9', marginTop: 8, textAlign: 'center' },
+  emptySubText: { fontSize: 16, color: '#A9A9A9', marginTop: 8 },
 });
 
 export default DashboardScreen;
