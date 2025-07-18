@@ -1,12 +1,12 @@
 // app/components/AddTaskModal.js
-import React, { useState, useEffect, useContext } from 'react';
-import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView, FlatList } from 'react-native';
-import { TextInput, Button, Text, useTheme, IconButton, Menu, Divider } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { TextInput, Button, Text, useTheme, IconButton, Divider } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { scheduleTaskNotification } from '../notifications';
-import SubtaskItem from './SubtaskItem'; // Import the new component
+import SubtaskItem from './SubtaskItem';
 
 const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     const theme = useTheme();
@@ -27,33 +27,34 @@ const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     );
 };
 
-const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
+const AddTaskModal = ({ visible, onClose, onSave, taskToEdit, defaultDate }) => {
   const theme = useTheme();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  // New state for subtasks
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtask, setNewSubtask] = useState('');
 
   useEffect(() => {
-    if (taskToEdit) {
-      setTitle(taskToEdit.title);
-      setDescription(taskToEdit.description || '');
-      setPriority(taskToEdit.priority || 'Medium');
-      setDueDate(taskToEdit.dueDate?.toDate() || new Date());
-      setSubtasks(taskToEdit.subtasks || []); // Load existing subtasks
-    } else {
-      setTitle('');
-      setDescription('');
-      setPriority('Medium');
-      setDueDate(new Date());
-      setSubtasks([]); // Reset subtasks for new task
+    if (visible) {
+        if (taskToEdit) {
+            setTitle(taskToEdit.title);
+            setDescription(taskToEdit.description || '');
+            setPriority(taskToEdit.priority || 'Medium');
+            setDueDate(taskToEdit.dueDate?.toDate() || defaultDate || new Date());
+            setSubtasks(taskToEdit.subtasks || []);
+        } else {
+            setTitle('');
+            setDescription('');
+            setPriority('Medium');
+            setDueDate(defaultDate || new Date());
+            setSubtasks([]);
+        }
+        setNewSubtask('');
     }
-    setNewSubtask(''); // Always reset new subtask input
-  }, [taskToEdit, visible]);
+  }, [taskToEdit, visible, defaultDate]);
 
   const handleAddSubtask = () => {
     if (newSubtask.trim()) {
@@ -63,11 +64,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   };
 
   const handleToggleSubtask = (id) => {
-    setSubtasks(
-        subtasks.map(sub =>
-            sub.id === id ? { ...sub, isCompleted: !sub.isCompleted } : sub
-        )
-    );
+    setSubtasks(subtasks.map(sub => sub.id === id ? { ...sub, isCompleted: !sub.isCompleted } : sub));
   };
 
   const handleDeleteSubtask = (id) => {
@@ -79,7 +76,6 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       alert('Title is required!');
       return;
     }
-    // Include subtasks in the data to be saved
     const taskData = { title, description, priority, dueDate, subtasks };
     onSave(taskData);
 
@@ -135,7 +131,6 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
             
             <Divider style={styles.divider} />
 
-            {/* Subtasks Section */}
             <Text style={styles.label}>Subtasks</Text>
             {subtasks.map(item => (
                  <SubtaskItem

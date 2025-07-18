@@ -1,5 +1,5 @@
 // app/screens/DashboardScreen.js
-import React, { useState, useContext, useMemo, useCallback } from 'react';
+import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
 import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme } from 'react-native-paper';
 import { format } from 'date-fns';
@@ -11,23 +11,35 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
-import GamificationHeader from '../components/GamificationHeader'; // Import the new component
-import useFilteredTasks from '../hooks/useFilteredTasks'; // Import the custom hook
+import GamificationHeader from '../components/GamificationHeader';
+import useFilteredTasks from '../hooks/useFilteredTasks';
 
-const DashboardScreen = ({ navigation }) => {
+const DashboardScreen = ({ route, navigation }) => {
   const { user } = useContext(AuthContext);
   const { tasks, userData, loading } = useContext(TasksContext);
   const theme = useTheme();
 
-  const [filter, setFilter] = useState('All'); // All, Today, Upcoming, Completed
+  const [filter, setFilter] = useState('All');
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
+  const [defaultDate, setDefaultDate] = useState(new Date());
 
   // Use the custom hook for filtering tasks
   const filteredTasks = useFilteredTasks(tasks, filter);
 
+  // Effect to handle editing a task from another screen (e.g., Calendar)
+  useEffect(() => {
+    if (route.params?.taskToEdit) {
+      setTaskToEdit(route.params.taskToEdit);
+      setModalVisible(true);
+      // Clear the param to avoid re-triggering
+      navigation.setParams({ taskToEdit: null });
+    }
+  }, [route.params?.taskToEdit, navigation]);
+
+
   const handleSaveTask = useCallback(async (taskData) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.MEDIUM);
     if (taskToEdit) {
       await FirestoreService.updateTask(user.uid, taskToEdit.id, taskData);
     } else {
@@ -37,7 +49,7 @@ const DashboardScreen = ({ navigation }) => {
   }, [user, taskToEdit]);
 
   const handleToggleTask = useCallback((task) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.LIGHT);
     if (!task.isCompleted) {
         FirestoreService.handleCompleteTask(user.uid, task.id, task.priority);
     } else {
@@ -49,7 +61,7 @@ const DashboardScreen = ({ navigation }) => {
     Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.SUCCESS);
           FirestoreService.deleteTask(user.uid, taskId);
       }},
     ]);
@@ -61,8 +73,9 @@ const DashboardScreen = ({ navigation }) => {
   }, []);
 
   const openAddModal = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.MEDIUM);
     setTaskToEdit(null);
+    setDefaultDate(new Date()); // Reset to today for general add
     setModalVisible(true);
   }, []);
 
@@ -116,9 +129,6 @@ const DashboardScreen = ({ navigation }) => {
           data={filteredTasks}
           keyExtractor={(item) => item.id}
           renderItem={renderTaskItem}
-          initialNumToRender={10}
-          maxToRenderPerBatch={5}
-          windowSize={10}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>All clear! ✅</Text>
@@ -136,6 +146,7 @@ const DashboardScreen = ({ navigation }) => {
         onClose={() => setModalVisible(false)}
         onSave={handleSaveTask}
         taskToEdit={taskToEdit}
+        defaultDate={defaultDate}
       />
 
       <FAB
