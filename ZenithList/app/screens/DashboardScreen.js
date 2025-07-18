@@ -1,15 +1,14 @@
 // app/screens/DashboardScreen.js
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar } from 'react-native-paper';
-import { format } from 'date-fns';
+import { Text, FAB, Searchbar, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar } from 'react-native-paper';
+import { isToday, isWithinInterval, addDays, format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
 import * as FirestoreService from '../firebase/firestore';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
-import useFilteredTasks from '../hooks/useFilteredTasks'; // Import the custom hook
 
 // Gamification Header Component
 const GamificationHeader = ({ userData }) => {
@@ -42,11 +41,44 @@ const DashboardScreen = ({ navigation }) => {
   const theme = useTheme();
 
   const [filter, setFilter] = useState('All'); // All, Today, Upcoming, Completed
+  const [searchQuery, setSearchQuery] = useState(''); // State for the search query
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
-  
-  // Use the custom hook to get the filtered tasks
-  const filteredTasks = useFilteredTasks(tasks, filter);
+
+  const filteredTasks = useMemo(() => {
+    const now = new Date();
+    // Start with sorting
+    let sortedTasks = tasks.sort((a,b) => (a.createdAt?.toDate() || 0) < (b.createdAt?.toDate() || 0) ? 1 : -1);
+
+    // Apply category filter first
+    let categoryFilteredTasks;
+    switch (filter) {
+      case 'Today':
+        categoryFilteredTasks = sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
+        break;
+      case 'Upcoming':
+        categoryFilteredTasks = sortedTasks.filter(t => !t.isCompleted && t.dueDate && isWithinInterval(t.dueDate.toDate(), { start: now, end: addDays(now, 7) }));
+        break;
+      case 'Completed':
+        categoryFilteredTasks = sortedTasks.filter(t => t.isCompleted);
+        break;
+      case 'All':
+      default:
+        categoryFilteredTasks = sortedTasks.filter(t => !t.isCompleted);
+        break;
+    }
+
+    // Apply search filter on the result of the category filter
+    if (searchQuery.trim() !== '') {
+        const lowercasedQuery = searchQuery.toLowerCase();
+        return categoryFilteredTasks.filter(task => 
+            task.title.toLowerCase().includes(lowercasedQuery) ||
+            (task.description && task.description.toLowerCase().includes(lowercasedQuery))
+        );
+    }
+    
+    return categoryFilteredTasks;
+  }, [tasks, filter, searchQuery]);
 
   const handleSaveTask = async (taskData) => {
     if (taskToEdit) {
@@ -94,6 +126,17 @@ const DashboardScreen = ({ navigation }) => {
 
       <GamificationHeader userData={userData} />
       
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Searchbar
+            placeholder="Search tasks..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={styles.searchbar}
+            inputStyle={{color: theme.colors.text}}
+        />
+      </View>
+
       <SegmentedButtons
         value={filter}
         onValueChange={setFilter}
@@ -123,9 +166,9 @@ const DashboardScreen = ({ navigation }) => {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>All clear!</Text>
+                <Text style={styles.emptyText}>{searchQuery ? 'No matching tasks' : 'All clear!'}</Text>
                 <Text style={styles.emptySubText}>
-                    {filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`}
+                    {searchQuery ? `Try a different search term.` : (filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`)}
                 </Text>
             </View>
           }
@@ -157,6 +200,13 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: 'bold' },
   statLabel: { fontSize: 12, color: '#A9A9A9', marginTop: 4 },
   progressBar: { width: '80%', marginTop: 8, height: 6, borderRadius: 3 },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  searchbar: {
+    borderRadius: 12,
+  },
   filters: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
