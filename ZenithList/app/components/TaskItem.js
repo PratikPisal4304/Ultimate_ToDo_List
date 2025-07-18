@@ -1,7 +1,7 @@
 // app/components/TaskItem.js
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { List, Checkbox, IconButton, Text, useTheme } from 'react-native-paper';
+import { List, Checkbox, IconButton, useTheme } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
 
 const priorityColors = {
@@ -84,4 +84,5 @@ const styles = StyleSheet.create({
   }
 });
 
-export default TaskItem;
+// Optimization: Memoize the component to prevent unnecessary re-renders
+export default React.memo(TaskItem);

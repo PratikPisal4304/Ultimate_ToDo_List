@@ -1,7 +1,7 @@
 // app/screens/DashboardScreen.js
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme } from 'react-native-paper';
+import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar } from 'react-native-paper';
 import { isToday, isWithinInterval, addDays, format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
@@ -9,7 +9,34 @@ import * as FirestoreService from '../firebase/firestore';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
-import GamificationHeader from '../components/GamificationHeader'; // Import the new component
+
+// Constant for TaskItem height for getItemLayout optimization
+const ITEM_HEIGHT = 90; // Approximate height: padding(16) + margin(12) + content(62)
+
+// Gamification Header Component
+const GamificationHeader = ({ userData }) => {
+    const theme = useTheme();
+    const level = userData?.level || 1;
+    const points = userData?.points || 0;
+    const pointsForNextLevel = level * 100;
+    const pointsInCurrentLevel = points - ((level - 1) * 100);
+    const progress = pointsInCurrentLevel / 100;
+
+    return (
+        <View style={[styles.gamificationBar, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.statBlock}>
+                <Text style={styles.statValue}>LVL {level}</Text>
+                <ProgressBar progress={progress} color={theme.colors.primary} style={styles.progressBar} />
+                <Text style={styles.statLabel}>{pointsInCurrentLevel} / 100 PTS</Text>
+            </View>
+            <View style={styles.statBlock}>
+                <Text style={styles.statValue}>🔥 {userData?.streak || 0}</Text>
+                <Text style={styles.statLabel}>Day Streak</Text>
+            </View>
+        </View>
+    );
+};
+
 
 const DashboardScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -22,7 +49,12 @@ const DashboardScreen = ({ navigation }) => {
   
   const filteredTasks = useMemo(() => {
     const now = new Date();
-    const sortedTasks = tasks.sort((a,b) => (a.createdAt?.toDate() || 0) < (b.createdAt?.toDate() || 0) ? 1 : -1);
+    // Sort once and memoize
+    const sortedTasks = [...tasks].sort((a, b) => {
+        const dateA = a.createdAt?.toDate() || 0;
+        const dateB = b.createdAt?.toDate() || 0;
+        return dateB - dateA;
+    });
 
     switch (filter) {
       case 'Today':
@@ -37,29 +69,29 @@ const DashboardScreen = ({ navigation }) => {
     }
   }, [tasks, filter]);
 
-  const handleSaveTask = async (taskData) => {
+  const handleSaveTask = useCallback(async (taskData) => {
     if (taskToEdit) {
       await FirestoreService.updateTask(user.uid, taskToEdit.id, taskData);
     } else {
       await FirestoreService.addTask(user.uid, taskData);
     }
     setTaskToEdit(null);
-  };
+  }, [user, taskToEdit]);
 
-  const handleToggleTask = (task) => {
+  const handleToggleTask = useCallback((task) => {
     if (!task.isCompleted) {
         FirestoreService.handleCompleteTask(user.uid, task.id, task.priority);
     } else {
         FirestoreService.updateTask(user.uid, task.id, { isCompleted: false });
     }
-  };
+  }, [user]);
 
-  const handleDeleteTask = (taskId) => {
+  const handleDeleteTask = useCallback((taskId) => {
     Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => FirestoreService.deleteTask(user.uid, taskId) },
     ]);
-  };
+  }, [user]);
   
   const openEditModal = (task) => {
     setTaskToEdit(task);
@@ -75,10 +107,29 @@ const DashboardScreen = ({ navigation }) => {
       navigation.navigate('Focus', { task });
   };
   
+  // Optimization: Pre-calculates the layout of items for FlatList
+  const getItemLayout = useCallback((data, index) => ({
+    length: ITEM_HEIGHT,
+    offset: ITEM_HEIGHT * index,
+    index,
+  }), []);
+
+  // Optimization: Memoize renderItem to prevent creating a new function on every render
+  const renderTaskItem = useCallback(({ item }) => (
+    <TaskItem
+      task={item}
+      onToggle={() => handleToggleTask(item)}
+      onDelete={() => handleDeleteTask(item.id)}
+      onEdit={() => openEditModal(item)}
+      onFocus={() => startFocusSession(item)}
+    />
+  ), [handleToggleTask, handleDeleteTask, openEditModal, startFocusSession]);
+
+
   return (
     <View style={styles.container}>
       <Appbar.Header style={{backgroundColor: theme.colors.background}}>
-        <Appbar.Content title={`Hello, ${user?.email?.split('@')[0] || 'Guest'}`} subtitle={`Today is ${format(new Date(), 'MMMM d')}`} />
+        <Appbar.Content title={`Hello, ${userData?.displayName || user?.email?.split('@')[0] || 'Guest'}`} subtitle={`Today is ${format(new Date(), 'MMMM d')}`} />
       </Appbar.Header>
 
       <GamificationHeader userData={userData} />
@@ -101,15 +152,8 @@ const DashboardScreen = ({ navigation }) => {
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TaskItem
-              task={item}
-              onToggle={() => handleToggleTask(item)}
-              onDelete={() => handleDeleteTask(item.id)}
-              onEdit={() => openEditModal(item)}
-              onFocus={() => startFocusSession(item)}
-            />
-          )}
+          renderItem={renderTaskItem}
+          getItemLayout={getItemLayout} // Optimization added here
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>All clear!</Text>
@@ -141,6 +185,11 @@ const DashboardScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  gamificationBar: { flexDirection: 'row', justifyContent: 'space-around', padding: 16, marginHorizontal: 16, borderRadius: 12, marginTop: 8 },
+  statBlock: { alignItems: 'center', flex: 1 },
+  statValue: { fontSize: 20, fontWeight: 'bold' },
+  statLabel: { fontSize: 12, color: '#A9A9A9', marginTop: 4 },
+  progressBar: { width: '80%', marginTop: 8, height: 6, borderRadius: 3 },
   filters: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
