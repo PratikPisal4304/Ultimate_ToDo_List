@@ -1,17 +1,15 @@
 // app/screens/DashboardScreen.js
-import React, { useState, useContext, useMemo, useCallback } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
 import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, ProgressBar } from 'react-native-paper';
-import { isToday, isWithinInterval, addDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
 import * as FirestoreService from '../firebase/firestore';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
-
-// Constant for TaskItem height for getItemLayout optimization
-const ITEM_HEIGHT = 90; // Approximate height: padding(16) + margin(12) + content(62)
+import useFilteredTasks from '../hooks/useFilteredTasks'; // Import the custom hook
 
 // Gamification Header Component
 const GamificationHeader = ({ userData }) => {
@@ -47,51 +45,32 @@ const DashboardScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   
-  const filteredTasks = useMemo(() => {
-    const now = new Date();
-    // Sort once and memoize
-    const sortedTasks = [...tasks].sort((a, b) => {
-        const dateA = a.createdAt?.toDate() || 0;
-        const dateB = b.createdAt?.toDate() || 0;
-        return dateB - dateA;
-    });
+  // Use the custom hook to get the filtered tasks
+  const filteredTasks = useFilteredTasks(tasks, filter);
 
-    switch (filter) {
-      case 'Today':
-        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isToday(t.dueDate.toDate()));
-      case 'Upcoming':
-        return sortedTasks.filter(t => !t.isCompleted && t.dueDate && isWithinInterval(t.dueDate.toDate(), { start: now, end: addDays(now, 7) }));
-      case 'Completed':
-        return sortedTasks.filter(t => t.isCompleted);
-      case 'All':
-      default:
-        return sortedTasks.filter(t => !t.isCompleted);
-    }
-  }, [tasks, filter]);
-
-  const handleSaveTask = useCallback(async (taskData) => {
+  const handleSaveTask = async (taskData) => {
     if (taskToEdit) {
       await FirestoreService.updateTask(user.uid, taskToEdit.id, taskData);
     } else {
       await FirestoreService.addTask(user.uid, taskData);
     }
     setTaskToEdit(null);
-  }, [user, taskToEdit]);
+  };
 
-  const handleToggleTask = useCallback((task) => {
+  const handleToggleTask = (task) => {
     if (!task.isCompleted) {
         FirestoreService.handleCompleteTask(user.uid, task.id, task.priority);
     } else {
         FirestoreService.updateTask(user.uid, task.id, { isCompleted: false });
     }
-  }, [user]);
+  };
 
-  const handleDeleteTask = useCallback((taskId) => {
+  const handleDeleteTask = (taskId) => {
     Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => FirestoreService.deleteTask(user.uid, taskId) },
     ]);
-  }, [user]);
+  };
   
   const openEditModal = (task) => {
     setTaskToEdit(task);
@@ -107,29 +86,10 @@ const DashboardScreen = ({ navigation }) => {
       navigation.navigate('Focus', { task });
   };
   
-  // Optimization: Pre-calculates the layout of items for FlatList
-  const getItemLayout = useCallback((data, index) => ({
-    length: ITEM_HEIGHT,
-    offset: ITEM_HEIGHT * index,
-    index,
-  }), []);
-
-  // Optimization: Memoize renderItem to prevent creating a new function on every render
-  const renderTaskItem = useCallback(({ item }) => (
-    <TaskItem
-      task={item}
-      onToggle={() => handleToggleTask(item)}
-      onDelete={() => handleDeleteTask(item.id)}
-      onEdit={() => openEditModal(item)}
-      onFocus={() => startFocusSession(item)}
-    />
-  ), [handleToggleTask, handleDeleteTask, openEditModal, startFocusSession]);
-
-
   return (
     <View style={styles.container}>
       <Appbar.Header style={{backgroundColor: theme.colors.background}}>
-        <Appbar.Content title={`Hello, ${userData?.displayName || user?.email?.split('@')[0] || 'Guest'}`} subtitle={`Today is ${format(new Date(), 'MMMM d')}`} />
+        <Appbar.Content title={`Hello, ${user?.email?.split('@')[0] || 'Guest'}`} subtitle={`Today is ${format(new Date(), 'MMMM d')}`} />
       </Appbar.Header>
 
       <GamificationHeader userData={userData} />
@@ -152,8 +112,15 @@ const DashboardScreen = ({ navigation }) => {
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item.id}
-          renderItem={renderTaskItem}
-          getItemLayout={getItemLayout} // Optimization added here
+          renderItem={({ item }) => (
+            <TaskItem
+              task={item}
+              onToggle={() => handleToggleTask(item)}
+              onDelete={() => handleDeleteTask(item.id)}
+              onEdit={() => openEditModal(item)}
+              onFocus={() => startFocusSession(item)}
+            />
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>All clear!</Text>
