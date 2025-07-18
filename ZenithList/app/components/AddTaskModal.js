@@ -110,6 +110,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
                         icon={() => <MaterialCommunityIcons name="circle" color={selectedProject.color} size={14} />}
                         mode="outlined"
                         style={styles.input}
+                        contentStyle={{justifyContent: 'flex-start'}}
                     >
                         {selectedProject.name}
                     </Button>
@@ -129,6 +130,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
             </View>
 
             <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.dateButton, {borderColor: theme.colors.placeholder}]}>
+              <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.placeholder} style={{marginRight: 10}} />
               <Text>{`Due: ${format(dueDate, 'E, MMM d, yyyy')}`}</Text>
             </TouchableOpacity>
 
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   closeButton: { position: 'absolute', top: 10, right: 10 },
   modalTitle: { marginBottom: 25, textAlign: 'center', fontWeight: 'bold' },
   input: { marginBottom: 15, width: '100%' },
-  label: { alignSelf: 'flex-start', marginLeft: 5, marginBottom: 8, color: '#A9A9A9' },
+  label: { alignSelf: 'flex-start', marginLeft: 5, marginBottom: 8, color: '#A9A9A9', fontSize: 16 },
   priorityContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   priorityButton: {
       flex: 1,
@@ -183,6 +185,7 @@ const styles = StyleSheet.create({
       borderRadius: 4,
       alignItems: 'center',
       marginBottom: 20,
+      flexDirection: 'row',
   },
   saveButton: { borderRadius: 30 },
   buttonContent: { paddingVertical: 8 },

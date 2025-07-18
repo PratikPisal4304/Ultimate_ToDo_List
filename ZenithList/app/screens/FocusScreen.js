@@ -5,6 +5,7 @@ import { Text, Button, useTheme, IconButton } from 'react-native-paper';
 import { useKeepAwake } from 'expo-keep-awake';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const FOCUS_TIME_SECONDS = 25 * 60; // 25 minutes in seconds
 
@@ -61,7 +62,10 @@ const FocusScreen = ({ route, navigation }) => {
   const progress = ((FOCUS_TIME_SECONDS - totalSeconds) / FOCUS_TIME_SECONDS) * 100;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <LinearGradient
+        colors={[theme.colors.background, theme.colors.surface]}
+        style={styles.container}
+    >
       <IconButton
         icon="close"
         size={30}
@@ -110,7 +114,7 @@ const FocusScreen = ({ route, navigation }) => {
           </Button>
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 

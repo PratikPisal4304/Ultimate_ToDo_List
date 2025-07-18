@@ -7,6 +7,7 @@ import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
 import * as FirestoreService from '../firebase/firestore';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
@@ -53,7 +54,7 @@ const DashboardScreen = ({ navigation }) => {
       }},
     ]);
   }, [user]);
-  
+
   const openEditModal = useCallback((task) => {
     setTaskToEdit(task);
     setModalVisible(true);
@@ -78,16 +79,24 @@ const DashboardScreen = ({ navigation }) => {
         onFocus={() => startFocusSession(item)}
     />
   ), [handleToggleTask, handleDeleteTask, openEditModal, startFocusSession]);
-  
+
   return (
     <View style={styles.container}>
-      <Appbar.Header style={{backgroundColor: theme.colors.background}}>
-        <Appbar.Content title={`Hello, ${user?.email?.split('@')[0] || 'Guest'}`} subtitle={`Today is ${format(new Date(), 'MMMM d')}`} />
-      </Appbar.Header>
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.background]}
+        style={styles.headerGradient}
+      >
+        <Appbar.Header style={styles.appbarHeader}>
+          <Appbar.Content
+            title={`Hello, ${user?.email?.split('@')[0] || 'Guest'}`}
+            subtitle={`Today is ${format(new Date(), 'MMMM d')}`}
+            titleStyle={styles.headerTitle}
+            subtitleStyle={styles.headerSubtitle}
+          />
+        </Appbar.Header>
+        <GamificationHeader userData={userData} />
+      </LinearGradient>
 
-      {/* Use the dedicated GamificationHeader component */}
-      <GamificationHeader userData={userData} />
-      
       <SegmentedButtons
         value={filter}
         onValueChange={setFilter}
@@ -128,7 +137,7 @@ const DashboardScreen = ({ navigation }) => {
         onSave={handleSaveTask}
         taskToEdit={taskToEdit}
       />
-      
+
       <FAB
         icon="plus"
         style={[styles.fab, {backgroundColor: theme.colors.primary}]}
@@ -141,8 +150,25 @@ const DashboardScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerGradient: {
+    paddingBottom: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  appbarHeader: {
+    backgroundColor: 'transparent',
+    elevation: 0,
+  },
+  headerTitle: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 24,
+  },
+  headerSubtitle: {
+    color: 'rgba(255,255,255,0.8)',
+  },
   filters: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },
-  fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
+  fab: { position: 'absolute', margin: 16, right: 0, bottom: 0, elevation: 8 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { alignItems: 'center', marginTop: 80, paddingHorizontal: 20 },
   emptyText: { fontSize: 22, fontWeight: 'bold' },

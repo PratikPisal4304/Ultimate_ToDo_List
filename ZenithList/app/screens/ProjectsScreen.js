@@ -13,13 +13,18 @@ const ProjectItem = React.memo(({ project, taskCount, onEdit, onDelete }) => {
     return (
         <List.Item
             title={project.name}
-            titleStyle={{fontWeight: 'bold'}}
+            titleStyle={{fontWeight: 'bold', fontSize: 18}}
             description={`${taskCount} tasks`}
-            left={() => <List.Icon icon={project.icon} color={project.color} />}
+            descriptionStyle={{fontSize: 14}}
+            left={() => (
+                <View style={[styles.projectIconContainer, {backgroundColor: project.color + '33'}]}>
+                    <List.Icon icon={project.icon} color={project.color} />
+                </View>
+            )}
             right={() => (
-                <View style={{flexDirection: 'row'}}>
-                    <Button onPress={onEdit}>Edit</Button>
-                    <Button onPress={onDelete} textColor={theme.colors.error}>Delete</Button>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <IconButton icon="pencil-outline" size={20} onPress={onEdit} />
+                    <IconButton icon="trash-can-outline" iconColor={theme.colors.error} size={20} onPress={onDelete} />
                 </View>
             )}
             style={[styles.projectItem, {backgroundColor: theme.colors.surface}]}
@@ -42,6 +47,8 @@ const ProjectsScreen = () => {
                 counts[task.projectId] = (counts[task.projectId] || 0) + 1;
             }
         });
+        // Count tasks with no project for 'All Tasks'
+        counts['all'] = tasks.length;
         return counts;
     }, [tasks]);
 
@@ -73,7 +80,7 @@ const ProjectsScreen = () => {
         setProjectToEdit(project);
         setModalVisible(true);
     }, []);
-    
+
     const openAddModal = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setProjectToEdit(null);
@@ -83,8 +90,8 @@ const ProjectsScreen = () => {
     const userProjects = useMemo(() => projects.filter(p => p.id !== 'all'), [projects]);
 
     const renderProjectItem = useCallback(({ item }) => (
-        <ProjectItem 
-            project={item} 
+        <ProjectItem
+            project={item}
             taskCount={taskCounts[item.id] || 0}
             onEdit={() => openEditModal(item)}
             onDelete={() => handleDeleteProject(item.id, item.name)}
@@ -93,8 +100,8 @@ const ProjectsScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Appbar.Header style={{backgroundColor: theme.colors.background}}>
-                <Appbar.Content title="Projects" subtitle="Organize your tasks" />
+            <Appbar.Header style={{backgroundColor: theme.colors.background, elevation: 0}}>
+                <Appbar.Content title="Projects" titleStyle={{fontWeight: 'bold', fontSize: 28}} />
             </Appbar.Header>
 
             {loading ? (
@@ -109,7 +116,7 @@ const ProjectsScreen = () => {
                 />
             )}
 
-            <AddProjectModal 
+            <AddProjectModal
                 visible={modalVisible}
                 onClose={() => setModalVisible(false)}
                 onSave={handleSaveProject}
@@ -132,7 +139,21 @@ const styles = StyleSheet.create({
     fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
     projectItem: {
         marginBottom: 12,
-        borderRadius: 12,
+        borderRadius: 16,
+        paddingVertical: 12,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    projectIconContainer: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
     },
     emptyText: {
         textAlign: 'center',

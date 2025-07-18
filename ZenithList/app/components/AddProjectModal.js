@@ -51,7 +51,7 @@ const AddProjectModal = ({ visible, onClose, onSave, projectToEdit }) => {
                         <Text variant="headlineMedium" style={styles.modalTitle}>
                             {projectToEdit ? 'Edit Project' : 'New Project'}
                         </Text>
-                        
+
                         <TextInput label="Project Name" value={name} onChangeText={setName} style={styles.input} mode="outlined" />
 
                         <Text style={styles.label}>Icon</Text>

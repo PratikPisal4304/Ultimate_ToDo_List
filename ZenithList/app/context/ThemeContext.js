@@ -18,6 +18,7 @@ const zenithDarkTheme = {
     placeholder: '#A9A9A9',
     onSurface: '#FFFFFF',
     error: '#FF6347',
+    gradient: ['#6A5ACD', '#121212'],
   },
 };
 
@@ -35,6 +36,7 @@ const zenithLightTheme = {
     placeholder: '#666666',
     onSurface: '#000000',
     error: '#B00020',
+    gradient: ['#6A5ACD', '#F7F7F7'],
   },
 };
 
