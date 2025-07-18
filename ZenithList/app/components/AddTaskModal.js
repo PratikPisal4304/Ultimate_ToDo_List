@@ -1,17 +1,44 @@
 // app/components/AddTaskModal.js
-import React, { useState, useEffect } from 'react';
-import { Modal, View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { TextInput, Button, SegmentedButtons, Text, useTheme, IconButton } from 'react-native-paper';
+import React, { useState, useEffect, useContext } from 'react';
+import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { TextInput, Button, Text, useTheme, IconButton, Menu } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
+import { TasksContext } from '../context/TasksContext';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+
+// ... (PriorityButton component remains the same)
+
+const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
+    const theme = useTheme();
+    const isSelected = value === selectedValue;
+    return (
+        <TouchableOpacity 
+            onPress={() => onSelect(value)}
+            style={[
+                styles.priorityButton,
+                { 
+                    backgroundColor: isSelected ? color : theme.colors.background,
+                    borderColor: isSelected ? color : theme.colors.placeholder,
+                }
+            ]}
+        >
+            <Text style={{color: isSelected ? '#fff' : theme.colors.text, fontWeight: isSelected ? 'bold' : 'normal'}}>{label}</Text>
+        </TouchableOpacity>
+    );
+};
+
 
 const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   const theme = useTheme();
+  const { projects } = useContext(TasksContext); // Get projects from context
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState(new Date());
+  const [projectId, setProjectId] = useState(null); // New state for project ID
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     if (taskToEdit) {
@@ -19,28 +46,32 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       setDescription(taskToEdit.description || '');
       setPriority(taskToEdit.priority || 'Medium');
       setDueDate(taskToEdit.dueDate?.toDate() || new Date());
+      setProjectId(taskToEdit.projectId || null);
     } else {
       setTitle('');
       setDescription('');
       setPriority('Medium');
       setDueDate(new Date());
+      setProjectId(null);
     }
-  }, [taskToEdit, visible]); // also reset on visible
+  }, [taskToEdit, visible]);
 
   const handleSave = () => {
     if (!title) {
       alert('Title is required!');
       return;
     }
-    onSave({ title, description, priority, dueDate });
+    onSave({ title, description, priority, dueDate, projectId }); // Add projectId to save data
     onClose();
   };
 
   const onDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || dueDate;
-    setShowDatePicker(Platform.OS === 'ios'); // on iOS, the picker is a modal itself
+    setShowDatePicker(Platform.OS === 'ios');
     setDueDate(currentDate);
   };
+
+  const selectedProject = projects.find(p => p.id === projectId) || { name: 'No Project', color: theme.colors.placeholder };
 
   return (
     <Modal
@@ -49,78 +80,77 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
         visible={visible}
         onRequestClose={onClose}
     >
-      <View style={styles.centeredView}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.centeredView}
+      >
         <View style={[styles.modalView, { backgroundColor: theme.colors.surface }]}>
-          <IconButton
-            icon="close-circle"
-            size={28}
-            onPress={onClose}
-            style={styles.closeButton}
-          />
-          <Text variant="headlineMedium" style={styles.modalTitle}>
-            {taskToEdit ? 'Edit Task' : 'New Task'}
-          </Text>
-          
-          <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
-          <TextInput
-            label="Description (Optional)"
-            value={description}
-            onChangeText={setDescription}
-            style={styles.input}
-            multiline
-            mode="outlined"
-          />
-          
-          <Text style={styles.label}>Priority</Text>
-          <SegmentedButtons
-            value={priority}
-            onValueChange={setPriority}
-            density="medium"
-            buttons={[
-              { value: 'Low', label: 'Low', style: {backgroundColor: priority === 'Low' ? '#32CD32' : theme.colors.background} },
-              { value: 'Medium', label: 'Medium', style: {backgroundColor: priority === 'Medium' ? '#FFD700' : theme.colors.background} },
-              { value: 'High', label: 'High', style: {backgroundColor: priority === 'High' ? '#FF6347' : theme.colors.background} },
-            ]}
-            style={styles.input}
-          />
+          <IconButton icon="close-circle" size={28} onPress={onClose} style={styles.closeButton} />
+          <ScrollView contentContainerStyle={{width: '100%'}} showsVerticalScrollIndicator={false}>
+            <Text variant="headlineMedium" style={styles.modalTitle}>
+              {taskToEdit ? 'Edit Task' : 'New Task'}
+            </Text>
+            
+            <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
+            <TextInput label="Description" value={description} onChangeText={setDescription} style={styles.input} multiline mode="outlined" numberOfLines={3} />
+            
+            {/* Project Selector */}
+            <Menu
+                visible={menuVisible}
+                onDismiss={() => setMenuVisible(false)}
+                anchor={
+                    <Button 
+                        onPress={() => setMenuVisible(true)} 
+                        icon={() => <MaterialCommunityIcons name="circle" color={selectedProject.color} size={14} />}
+                        mode="outlined"
+                        style={styles.input}
+                    >
+                        {selectedProject.name}
+                    </Button>
+                }
+            >
+                <Menu.Item onPress={() => { setProjectId(null); setMenuVisible(false); }} title="No Project" />
+                {projects.filter(p => p.id !== 'all').map(p => (
+                    <Menu.Item key={p.id} onPress={() => { setProjectId(p.id); setMenuVisible(false); }} title={p.name} />
+                ))}
+            </Menu>
 
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.dateButton, {borderColor: theme.colors.placeholder}]}>
-            <Text>{`Due: ${format(dueDate, 'E, MMM d, yyyy')}`}</Text>
-          </TouchableOpacity>
+            <Text style={styles.label}>Priority</Text>
+            <View style={styles.priorityContainer}>
+                <PriorityButton label="Low" value="Low" selectedValue={priority} onSelect={setPriority} color="#32CD32" />
+                <PriorityButton label="Medium" value="Medium" selectedValue={priority} onSelect={setPriority} color="#FFD700" />
+                <PriorityButton label="High" value="High" selectedValue={priority} onSelect={setPriority} color="#FF6347" />
+            </View>
 
-          {showDatePicker && (
-            <DateTimePicker
-              value={dueDate}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-              textColor={theme.colors.text} // For iOS dark mode
-            />
-          )}
+            <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.dateButton, {borderColor: theme.colors.placeholder}]}>
+              <Text>{`Due: ${format(dueDate, 'E, MMM d, yyyy')}`}</Text>
+            </TouchableOpacity>
 
-          <Button 
-            mode="contained" 
-            onPress={handleSave} 
-            style={styles.saveButton}
-            contentStyle={styles.buttonContent}
-            labelStyle={styles.buttonLabel}
-          >
-            {taskToEdit ? 'Update Task' : 'Create Task'}
-          </Button>
+            {showDatePicker && (
+              <DateTimePicker value={dueDate} mode="date" display="default" onChange={onDateChange} textColor={theme.colors.text} />
+            )}
+
+            <Button mode="contained" onPress={handleSave} style={styles.saveButton} contentStyle={styles.buttonContent} labelStyle={styles.buttonLabel}>
+              {taskToEdit ? 'Update Task' : 'Create Task'}
+            </Button>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  centeredView: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  centeredView: { flex: 1, justifyContent: 'flex-end' },
   modalView: {
+    backgroundColor: '#1E1E1E',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 35,
+    paddingHorizontal: 25,
+    paddingBottom: 35,
     paddingTop: 45,
     width: '100%',
+    maxHeight: '90%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
@@ -131,6 +161,15 @@ const styles = StyleSheet.create({
   modalTitle: { marginBottom: 25, textAlign: 'center', fontWeight: 'bold' },
   input: { marginBottom: 15, width: '100%' },
   label: { alignSelf: 'flex-start', marginLeft: 5, marginBottom: 8, color: '#A9A9A9' },
+  priorityContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  priorityButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 8,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      marginHorizontal: 4,
+  },
   dateButton: {
       width: '100%',
       padding: 16,
@@ -145,3 +184,4 @@ const styles = StyleSheet.create({
 });
 
 export default AddTaskModal;
+
