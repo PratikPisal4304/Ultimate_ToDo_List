@@ -27,22 +27,34 @@ const TasksProvider = ({ children }) => {
   });
 
   useEffect(() => {
+    // Define placeholder unsubscribe functions to be used in the cleanup return.
+    let unsubscribeTasks = () => {};
+    let unsubscribeUserData = () => {};
+
     if (user) {
+      // If user is logged in, set loading and subscribe to their data.
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const unsubscribeTasks = getTasks(user.uid, (tasks) => {
+      unsubscribeTasks = getTasks(user.uid, (tasks) => {
         dispatch({ type: 'SET_TASKS', payload: tasks });
       });
 
-      const unsubscribeUserData = getUserData(user.uid, (data) => {
+      unsubscribeUserData = getUserData(user.uid, (data) => {
           dispatch({ type: 'SET_USER_DATA', payload: data });
       });
-
-      return () => {
-        unsubscribeTasks();
-        unsubscribeUserData();
-      };
+    } else {
+      // FIX: If user is null (logged out), clear all data from the context.
+      // This prevents components from trying to render stale data with a null user.
+      dispatch({ type: 'SET_TASKS', payload: [] });
+      dispatch({ type: 'SET_USER_DATA', payload: null });
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
+
+    // This cleanup function will run when the user dependency changes or on unmount.
+    return () => {
+      unsubscribeTasks();
+      unsubscribeUserData();
+    };
   }, [user]);
 
   return (

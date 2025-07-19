@@ -14,10 +14,8 @@ import { generateTasksFromPrompt, addGeneratedTasks } from '../services/aiServic
 import { AuthContext } from '../context/AuthContext';
 
 // --- AI Configuration ---
-// Easily switch between different AI providers here.
-// Example for OpenAI:
 const AI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const AI_MODEL = 'gpt-4-turbo'; // Or any other compatible model
+const AI_MODEL = 'gpt-4-turbo';
 
 const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     const theme = useTheme();
@@ -69,7 +67,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       setRecurrence(taskToEdit.recurrence || { frequency: 'none', interval: 1 });
       setReminderDate(taskToEdit.reminderDate?.toDate() || null);
     } else {
-      // Reset all fields when the modal opens for a new task
+      // Reset all fields for a new task
       setTitle('');
       setDescription('');
       setPriority('Medium');
@@ -101,7 +99,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       if (generatedTasks.length > 0) {
         await addGeneratedTasks(user.uid, generatedTasks);
         Alert.alert("Success", `${generatedTasks.length} tasks have been generated and added to your list.`);
-        onClose(); // Close the modal after successful generation
+        onClose();
       } else {
         Alert.alert("No Tasks Generated", "The AI did not return any tasks. Please try a different prompt.");
       }
@@ -129,12 +127,18 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   };
 
   const handleSave = () => {
-    if (!title) {
-      alert('Title is required!');
+    if (!title.trim()) {
+      Alert.alert('Title Required', 'Please enter a title for the task.');
       return;
     }
     const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-    const taskData = { title, description, priority, dueDate, subtasks, tags: tagsArray, recurrence, reminderDate };
+    // Ensure interval is at least 1 when saving
+    const finalRecurrence = {
+        ...recurrence,
+        interval: Number(recurrence.interval) || 1
+    };
+
+    const taskData = { title, description, priority, dueDate, subtasks, tags: tagsArray, recurrence: finalRecurrence, reminderDate };
     
     onSave(taskData);
 
@@ -148,16 +152,23 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   };
 
   const onDateChange = (event, selectedDate) => {
-    const currentDate = selectedDate || dueDate;
-    setShowDatePicker(Platform.OS === 'ios');
-    setDueDate(currentDate);
+    setShowDatePicker(false);
+    if (event.type === 'set' && selectedDate) {
+      setDueDate(selectedDate);
+    }
   };
   
   const onReminderDateChange = (event, selectedDate) => {
-    setShowReminderPicker(Platform.OS === 'ios');
-    if (selectedDate) {
+    setShowReminderPicker(false);
+    if (event.type === 'set' && selectedDate) {
       setReminderDate(selectedDate);
     }
+  };
+
+  // FIX: Allow interval input to be temporarily empty for a better UX
+  const handleIntervalChange = (text) => {
+    const numericValue = text.replace(/[^0-9]/g, '');
+    setRecurrence({ ...recurrence, interval: numericValue });
   };
 
   return (
@@ -178,7 +189,6 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
               {taskToEdit ? 'Edit Task' : 'New Task'}
             </Text>
 
-            {/* AI Generation Section */}
             {!taskToEdit && (
               <>
                 <View style={styles.aiSection}>
@@ -205,10 +215,8 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
               </>
             )}
 
-
             <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
             <TextInput label="Description" value={description} onChangeText={setDescription} style={styles.input} multiline mode="outlined" numberOfLines={3} />
-            
             <TextInput 
               label="Tags (comma-separated)" 
               value={tags} 
@@ -248,23 +256,23 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
             )}
 
             <Text style={styles.label}>Repeat</Text>
-            <View style={[styles.recurrenceContainer, {borderColor: theme.colors.placeholder}]}>
+            <View style={[styles.recurrenceContainer, {borderColor: theme.colors.placeholder, backgroundColor: theme.colors.surface}]}>
               <Picker
                 selectedValue={recurrence.frequency}
                 style={{ flex: 1, color: theme.colors.text }}
                 onValueChange={(itemValue) => setRecurrence({ ...recurrence, frequency: itemValue })}
                 dropdownIconColor={theme.colors.placeholder}
               >
-                <Picker.Item label="Never" value="none" />
-                <Picker.Item label="Daily" value="daily" />
-                <Picker.Item label="Weekly" value="weekly" />
-                <Picker.Item label="Monthly" value="monthly" />
+                <Picker.Item label="Never" value="none" color={theme.colors.text} />
+                <Picker.Item label="Daily" value="daily" color={theme.colors.text} />
+                <Picker.Item label="Weekly" value="weekly" color={theme.colors.text} />
+                <Picker.Item label="Monthly" value="monthly" color={theme.colors.text} />
               </Picker>
               {recurrence.frequency !== 'none' && (
                 <TextInput
                   label="Interval"
                   value={String(recurrence.interval)}
-                  onChangeText={(text) => setRecurrence({ ...recurrence, interval: parseInt(text) || 1 })}
+                  onChangeText={handleIntervalChange}
                   keyboardType="numeric"
                   style={{ width: 100, marginLeft: 10, backgroundColor: theme.colors.surface }}
                   mode="outlined"

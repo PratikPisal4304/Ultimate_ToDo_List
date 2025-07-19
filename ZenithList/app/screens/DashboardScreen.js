@@ -35,15 +35,14 @@ const DashboardScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sort, setSort] = useState('Creation Date'); // 'Creation Date', 'Due Date', 'Priority'
-  const [grouping, setGrouping] = useState('None'); // 'None', 'Group by Priority'
+  const [sort, setSort] = useState('Creation Date');
+  const [grouping, setGrouping] = useState('None');
   const [greeting, setGreeting] = useState('');
 
-  const fabRef = useRef(null); // Ref for animating the FAB
+  const fabRef = useRef(null);
 
   useEffect(() => {
     setGreeting(getGreeting());
-    // Animate FAB on screen load
     if (fabRef.current) {
         fabRef.current.zoomIn(800);
     }
@@ -67,7 +66,6 @@ const DashboardScreen = ({ navigation }) => {
   }, [searchQuery, filteredTasks]);
 
   const processedTasks = useMemo(() => {
-    // --- Sorting Logic ---
     const priorityOrder = { High: 1, Medium: 2, Low: 3 };
     let sorted = [...searchedTasks];
     if (sort === 'Due Date') {
@@ -76,13 +74,10 @@ const DashboardScreen = ({ navigation }) => {
       sorted.sort((a, b) => (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4));
     }
     
-    // --- Grouping Logic ---
     if (grouping === 'Group by Priority') {
       const grouped = sorted.reduce((acc, task) => {
         const priority = task.priority || 'Medium';
-        if (!acc[priority]) {
-          acc[priority] = [];
-        }
+        if (!acc[priority]) acc[priority] = [];
         acc[priority].push(task);
         return acc;
       }, {});
@@ -94,7 +89,6 @@ const DashboardScreen = ({ navigation }) => {
     
     return sorted;
   }, [searchedTasks, sort, grouping]);
-
 
   // --- Action Handlers ---
 
@@ -173,10 +167,10 @@ const DashboardScreen = ({ navigation }) => {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* --- Header Section --- */}
       <LinearGradient
-        colors={[theme.colors.primary, theme.colors.background]}
+        colors={theme.colors.headerGradient}
         style={styles.headerGradient}
       >
         <Appbar.Header style={styles.appbarHeader}>

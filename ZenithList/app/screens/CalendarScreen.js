@@ -1,14 +1,13 @@
 // app/screens/CalendarScreen.js
 import React, { useContext, useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, SectionList } from 'react-native';
+import { View, StyleSheet, SectionList } from 'react-native';
 import { Appbar, Text, useTheme, Button } from 'react-native-paper';
 import { Calendar } from 'react-native-calendars';
 import { format, startOfDay, addDays, isToday, isTomorrow, isAfter } from 'date-fns';
 import { TasksContext } from '../context/TasksContext';
 import TaskItem from '../components/TaskItem';
 import { AuthContext } from '../context/AuthContext';
-import *
-as FirestoreService from '../firebase/firestore';
+import * as FirestoreService from '../firebase/firestore';
 
 const CalendarScreen = ({ navigation }) => {
     const theme = useTheme();
@@ -34,8 +33,8 @@ const CalendarScreen = ({ navigation }) => {
         markings[selectedDate] = {
             ...markings[selectedDate],
             selected: true,
-            selectedColor: theme.colors.primary,
-            selectedTextColor: '#FFFFFF'
+            selectedColor: theme.colors.calendar.selectedDayBackground,
+            selectedTextColor: theme.colors.calendar.selectedDayText,
         };
 
         return markings;
@@ -49,14 +48,13 @@ const CalendarScreen = ({ navigation }) => {
         const upcomingTasks = tasks.filter(task => {
             if (!task.dueDate || task.isCompleted) return false;
             const taskDate = task.dueDate.toDate();
-            return isAfter(taskDate, today) && taskDate <= nextSevenDays;
+            // Show tasks for today and the next 7 days
+            return taskDate >= today && taskDate <= nextSevenDays;
         });
 
         const groupedTasks = upcomingTasks.reduce((acc, task) => {
             const dateString = format(task.dueDate.toDate(), 'yyyy-MM-dd');
-            if (!acc[dateString]) {
-                acc[dateString] = [];
-            }
+            if (!acc[dateString]) acc[dateString] = [];
             acc[dateString].push(task);
             return acc;
         }, {});
@@ -70,15 +68,19 @@ const CalendarScreen = ({ navigation }) => {
 
     // Handlers for TaskItem actions
     const handleToggleTask = useCallback((task) => {
+        // FIX: Pass the entire task object to handleCompleteTask as required.
         if (!task.isCompleted) {
-            FirestoreService.handleCompleteTask(user.uid, task.id, task.priority);
+            FirestoreService.handleCompleteTask(user.uid, task);
         } else {
             FirestoreService.updateTask(user.uid, task.id, { isCompleted: false });
         }
-    }, [user.uid]);
+    }, [user]); // user is a dependency now, but it's guarded by the RootNavigator
 
     const openEditModal = useCallback((task) => {
-        navigation.navigate('Dashboard', { screen: 'Dashboard', params: { taskToEdit: task } });
+        // This functionality needs to be handled differently as the modal is on Dashboard.
+        // For now, we assume navigation is set up to handle this.
+        // A better long-term solution might be a global modal context.
+        navigation.navigate('Dashboard', { screen: 'Dashboard', params: { taskToEdit: task, openModal: true } });
     }, [navigation]);
 
     const startFocusSession = useCallback((task) => {
@@ -86,7 +88,7 @@ const CalendarScreen = ({ navigation }) => {
     }, [navigation]);
 
     const getSectionTitle = (title) => {
-        const date = new Date(title);
+        const date = new Date(title + 'T00:00:00'); // Ensure correct date parsing
         if (isToday(date)) return `Today, ${format(date, 'MMMM d')}`;
         if (isTomorrow(date)) return `Tomorrow, ${format(date, 'MMMM d')}`;
         return format(date, 'EEEE, MMMM d');
@@ -105,17 +107,24 @@ const CalendarScreen = ({ navigation }) => {
                 markingType={'multi-dot'}
                 markedDates={markedDates}
                 theme={{
-                    backgroundColor: theme.colors.background,
-                    calendarBackground: theme.colors.surface,
-                    textSectionTitleColor: '#b6c1cd',
-                    selectedDayBackgroundColor: theme.colors.primary,
-                    selectedDayTextColor: '#ffffff',
-                    todayTextColor: theme.colors.primary,
-                    dayTextColor: theme.colors.text,
-                    textDisabledColor: theme.colors.disabled,
-                    arrowColor: theme.colors.primary,
-                    monthTextColor: theme.colors.primary,
+                    backgroundColor: theme.colors.calendar.background,
+                    calendarBackground: theme.colors.calendar.background,
+                    textSectionTitleColor: theme.colors.placeholder,
+                    selectedDayBackgroundColor: theme.colors.calendar.selectedDayBackground,
+                    selectedDayTextColor: theme.colors.calendar.selectedDayText,
+                    todayTextColor: theme.colors.calendar.todayText,
+                    dayTextColor: theme.colors.calendar.dayText,
+                    textDisabledColor: theme.colors.calendar.textDisabled,
+                    arrowColor: theme.colors.calendar.arrowColor,
+                    monthTextColor: theme.colors.calendar.monthText,
                     textMonthFontWeight: 'bold',
+                    'stylesheet.calendar.header': {
+                        week: {
+                            marginTop: 5,
+                            flexDirection: 'row',
+                            justifyContent: 'space-around'
+                        },
+                    }
                 }}
             />
 
@@ -153,7 +162,8 @@ const styles = StyleSheet.create({
     },
     listHeader: {
         paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingTop: 16,
+        paddingBottom: 8,
         fontWeight: 'bold'
     },
     emptyContainer: {
