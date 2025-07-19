@@ -9,6 +9,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FocusScreen from '../screens/FocusScreen';
 import CalendarScreen from '../screens/CalendarScreen';
+import HowToUseScreen from '../screens/HowToUseScreen'; // --- IMPORT THE NEW SCREEN ---
 
 const Tab = createMaterialBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -65,6 +66,11 @@ const AppNavigator = () => {
         name="Focus"
         component={FocusScreen}
         options={{ presentation: 'modal' }}
+      />
+      {/* --- ADD THE NEW SCREEN TO THE STACK --- */}
+      <Stack.Screen
+        name="HowToUse"
+        component={HowToUseScreen}
       />
     </Stack.Navigator>
   );

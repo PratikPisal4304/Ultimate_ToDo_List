@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const API_KEY_NAME = 'aiApiKey';
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => { // Added navigation prop
   const { user } = useContext(AuthContext);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -64,6 +64,18 @@ const ProfileScreen = () => {
               title="Dark Mode"
               left={() => <List.Icon icon="theme-light-dark" />}
               right={() => <Switch value={isDarkMode} onValueChange={toggleTheme} />}
+              style={[styles.listItem, {backgroundColor: theme.colors.surface}]}
+            />
+        </List.Section>
+
+        {/* --- NEW SECTION FOR APP GUIDE --- */}
+        <List.Section style={styles.settingsSection}>
+            <List.Subheader style={styles.subheader}>Help</List.Subheader>
+            <List.Item
+              title="How to Use Zenith List"
+              description="Learn about all the features."
+              left={() => <List.Icon icon="help-circle-outline" />}
+              onPress={() => navigation.navigate('HowToUse')}
               style={[styles.listItem, {backgroundColor: theme.colors.surface}]}
             />
         </List.Section>
