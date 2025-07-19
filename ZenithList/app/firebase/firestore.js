@@ -12,7 +12,8 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { addDays, addWeeks, addMonths } from 'date-fns';
+// Import additional date-fns functions for robust date comparison
+import { addDays, addWeeks, addMonths, isSameDay, subDays, startOfDay } from 'date-fns';
 
 // --- Task Functions ---
 
@@ -110,22 +111,29 @@ export const handleCompleteTask = async (userId, task) => {
             const userData = userDoc.data();
             const newPoints = (userData.points || 0) + pointsToAdd;
             const newLevel = Math.floor(newPoints / 100) + 1;
+            
+            // --- REFACTORED STREAK LOGIC ---
             let newStreak = userData.streak || 0;
             const lastCompletion = userData.lastCompletionDate?.toDate();
             const now = new Date();
+            const today = startOfDay(now);
             
             if (lastCompletion) {
-                const isSameDay = now.toDateString() === lastCompletion.toDateString();
-                const yesterday = new Date();
-                yesterday.setDate(now.getDate() - 1);
-                if (!isSameDay) {
-                   if (yesterday.toDateString() === lastCompletion.toDateString()) {
+                const lastCompletionDay = startOfDay(lastCompletion);
+                const yesterday = subDays(today, 1);
+                
+                // Only update streak if the last completion wasn't today
+                if (!isSameDay(today, lastCompletionDay)) {
+                    if (isSameDay(lastCompletionDay, yesterday)) {
+                        // Completed yesterday, so increment streak
                         newStreak++;
-                   } else {
+                    } else {
+                        // Missed a day, so reset streak to 1
                         newStreak = 1;
-                   }
+                    }
                 }
             } else {
+                // First ever completion
                 newStreak = 1;
             }
 
