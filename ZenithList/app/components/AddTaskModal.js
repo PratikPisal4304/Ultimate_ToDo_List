@@ -1,13 +1,23 @@
 // app/components/AddTaskModal.js
-import React, { useState, useEffect } from 'react';
-import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { Modal, View, StyleSheet, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView, Alert } from 'react-native';
 import { TextInput, Button, Text, useTheme, IconButton, Divider } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import * as SecureStore from 'expo-secure-store';
+
 import { scheduleTaskNotification, scheduleTaskReminder } from '../notifications';
 import SubtaskItem from './SubtaskItem';
 import { Picker } from '@react-native-picker/picker';
+import { generateTasksFromPrompt, addGeneratedTasks } from '../services/aiService';
+import { AuthContext } from '../context/AuthContext';
+
+// --- AI Configuration ---
+// Easily switch between different AI providers here.
+// Example for OpenAI:
+const AI_API_URL = 'https://api.openai.com/v1/chat/completions';
+const AI_MODEL = 'gpt-4-turbo'; // Or any other compatible model
 
 const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
     const theme = useTheme();
@@ -30,6 +40,8 @@ const PriorityButton = ({ label, value, selectedValue, onSelect, color }) => {
 
 const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   const theme = useTheme();
+  const { user } = useContext(AuthContext);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Medium');
@@ -42,6 +54,10 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
   const [reminderDate, setReminderDate] = useState(null);
   const [showReminderPicker, setShowReminderPicker] = useState(false);
 
+  // AI State
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
   useEffect(() => {
     if (taskToEdit) {
       setTitle(taskToEdit.title);
@@ -53,6 +69,7 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       setRecurrence(taskToEdit.recurrence || { frequency: 'none', interval: 1 });
       setReminderDate(taskToEdit.reminderDate?.toDate() || null);
     } else {
+      // Reset all fields when the modal opens for a new task
       setTitle('');
       setDescription('');
       setPriority('Medium');
@@ -61,9 +78,40 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
       setTags('');
       setRecurrence({ frequency: 'none', interval: 1 });
       setReminderDate(null);
+      setAiPrompt('');
     }
     setNewSubtask('');
   }, [taskToEdit, visible]);
+
+  const handleGenerateTasks = async () => {
+    if (!aiPrompt) {
+      Alert.alert("Prompt Required", "Please enter a prompt to generate tasks.");
+      return;
+    }
+    setIsGenerating(true);
+    const apiKey = await SecureStore.getItemAsync('aiApiKey');
+    if (!apiKey) {
+      Alert.alert("API Key Required", "Please save your AI provider's API key in your profile.");
+      setIsGenerating(false);
+      return;
+    }
+
+    try {
+      const generatedTasks = await generateTasksFromPrompt(aiPrompt, apiKey, AI_API_URL, AI_MODEL);
+      if (generatedTasks.length > 0) {
+        await addGeneratedTasks(user.uid, generatedTasks);
+        Alert.alert("Success", `${generatedTasks.length} tasks have been generated and added to your list.`);
+        onClose(); // Close the modal after successful generation
+      } else {
+        Alert.alert("No Tasks Generated", "The AI did not return any tasks. Please try a different prompt.");
+      }
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
 
   const handleAddSubtask = () => {
     if (newSubtask.trim()) {
@@ -129,6 +177,34 @@ const AddTaskModal = ({ visible, onClose, onSave, taskToEdit }) => {
             <Text variant="headlineMedium" style={styles.modalTitle}>
               {taskToEdit ? 'Edit Task' : 'New Task'}
             </Text>
+
+            {/* AI Generation Section */}
+            {!taskToEdit && (
+              <>
+                <View style={styles.aiSection}>
+                  <TextInput
+                    label="Or generate tasks with AI..."
+                    value={aiPrompt}
+                    onChangeText={setAiPrompt}
+                    placeholder='e.g., "Plan a 3-day trip to the mountains"'
+                    style={styles.input}
+                    mode="outlined"
+                    multiline
+                  />
+                  <Button
+                    mode="contained-tonal"
+                    onPress={handleGenerateTasks}
+                    loading={isGenerating}
+                    disabled={isGenerating}
+                    icon="auto-fix"
+                  >
+                    Generate
+                  </Button>
+                </View>
+                <Divider style={styles.divider}><Text>OR</Text></Divider>
+              </>
+            )}
+
 
             <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.input} mode="outlined" />
             <TextInput label="Description" value={description} onChangeText={setDescription} style={styles.input} multiline mode="outlined" numberOfLines={3} />
@@ -274,6 +350,9 @@ const styles = StyleSheet.create({
   },
   divider: {
       marginVertical: 20,
+  },
+  aiSection: {
+    marginBottom: 10,
   },
   saveButton: { borderRadius: 30, marginTop: 20 },
   buttonContent: { paddingVertical: 8 },
