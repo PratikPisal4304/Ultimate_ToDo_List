@@ -4,19 +4,26 @@ import {
   signInWithEmailAndPassword,
   signInAnonymously,
   signOut,
+  sendPasswordResetEmail,
+  updateProfile, // Import updateProfile
 } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
 
 // Handle User Sign Up
-export const handleSignUp = async (email, password) => {
+export const handleSignUp = async (email, password, username) => { // Add username parameter
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
+    
+    // Update the Firebase Auth user profile with the display name
+    await updateProfile(user, { displayName: username });
+
     // Create a user document in Firestore
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
       email: user.email,
+      username: username, // Save the username
       points: 0,
       level: 1,
       streak: 0,
@@ -56,6 +63,16 @@ export const handleAnonymousSignIn = async () => {
     } catch (error) {
         return { error };
     }
+};
+
+// --- NEW: Handle Password Reset ---
+export const handlePasswordReset = async (email) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return {};
+  } catch (error) {
+    return { error };
+  }
 };
 
 

@@ -1,16 +1,20 @@
 // app/screens/LoginScreen.js
 import React, { useState, useContext } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from 'react-native';
 import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
-import { handleSignIn, handleAnonymousSignIn } from '../firebase/auth';
+import { handleSignIn, handleAnonymousSignIn, handlePasswordReset } from '../firebase/auth'; // Import handlePasswordReset
 import { AuthContext } from '../context/AuthContext';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+
+// --- Validation Regex ---
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordSecure, setIsPasswordSecure] = useState(true); // State for password visibility
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { dispatch } = useContext(AuthContext);
@@ -19,6 +23,10 @@ const LoginScreen = ({ navigation }) => {
   const onLogin = async () => {
     if (!email || !password) {
         setError("Please enter both email and password.");
+        return;
+    }
+    if (!EMAIL_REGEX.test(email)) {
+        setError("Please enter a valid email address.");
         return;
     }
     setLoading(true);
@@ -30,6 +38,27 @@ const LoginScreen = ({ navigation }) => {
       dispatch({ type: 'SIGN_IN', payload: user });
     }
     setLoading(false);
+  };
+
+  const onForgotPassword = async () => {
+    if (!email) {
+      Alert.alert("Email Required", "Please enter your email address in the field above to reset your password.");
+      return;
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address to reset your password.");
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await handlePasswordReset(email);
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Error", "Could not send password reset email. Please check the email address and try again.");
+    } else {
+      Alert.alert("Check Your Email", "A password reset link has been sent to your email address.");
+    }
   };
 
   const onAnonymousLogin = async () => {
@@ -77,10 +106,14 @@ const LoginScreen = ({ navigation }) => {
                 label="Password"
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                secureTextEntry={isPasswordSecure}
                 style={styles.input}
                 left={<TextInput.Icon icon="lock-outline" />}
+                right={<TextInput.Icon icon={isPasswordSecure ? "eye-off" : "eye"} onPress={() => setIsPasswordSecure(!isPasswordSecure)}/>}
             />
+            <TouchableOpacity onPress={onForgotPassword}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
             <Button
                 mode="contained"
                 onPress={onLogin}
@@ -163,6 +196,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 0, 0, 0.1)',
     padding: 8,
     borderRadius: 8
+  },
+  forgotPasswordText: {
+    textAlign: 'right',
+    marginBottom: 15,
+    color: 'white',
+    fontWeight: 'bold'
   },
 });
 

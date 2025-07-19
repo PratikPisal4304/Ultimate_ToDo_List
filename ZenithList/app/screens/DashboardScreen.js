@@ -1,7 +1,7 @@
 // app/screens/DashboardScreen.js
 import React, { useState, useContext, useMemo, useCallback, useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, Alert, SectionList, ScrollView } from 'react-native';
-import { Text, FAB, SegmentedButtons, ActivityIndicator, Appbar, useTheme, Searchbar, Chip } from 'react-native-paper';
+import { View, FlatList, StyleSheet, Alert, SectionList, ScrollView, RefreshControl } from 'react-native';
+import { Text, FAB, SegmentedButtons, Appbar, useTheme, Searchbar, Chip, Snackbar, Button } from 'react-native-paper';
 import { format } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { TasksContext } from '../context/TasksContext';
@@ -11,11 +11,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-
 import TaskItem from '../components/TaskItem';
 import AddTaskModal from '../components/AddTaskModal';
 import GamificationHeader from '../components/GamificationHeader';
 import useFilteredTasks from '../hooks/useFilteredTasks';
+import TaskItemSkeleton from '../components/TaskItemSkeleton'; // Import the skeleton component
 
 // --- Helper Function for Dynamic Greeting ---
 const getGreeting = () => {
@@ -38,18 +38,28 @@ const DashboardScreen = ({ navigation }) => {
   const [sort, setSort] = useState('Creation Date');
   const [grouping, setGrouping] = useState('None');
   const [greeting, setGreeting] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false); // For Undo Snackbar
+  const [recentlyDeleted, setRecentlyDeleted] = useState(null); // To hold deleted task
+  const [isRefreshing, setIsRefreshing] = useState(false); // For pull-to-refresh
 
   const fabRef = useRef(null);
+  const deleteTimeoutRef = useRef(null);
 
   useEffect(() => {
     setGreeting(getGreeting());
     if (fabRef.current) {
         fabRef.current.zoomIn(800);
     }
+
+    // Cleanup timeout on unmount
+    return () => {
+        if (deleteTimeoutRef.current) {
+            clearTimeout(deleteTimeoutRef.current);
+        }
+    };
   }, []);
 
   // --- Data Processing Hooks ---
-
   const filteredTasks = useFilteredTasks(tasks, filter);
   
   const searchedTasks = useMemo(() => {
@@ -91,6 +101,12 @@ const DashboardScreen = ({ navigation }) => {
   }, [searchedTasks, sort, grouping]);
 
   // --- Action Handlers ---
+  const onRefresh = useCallback(() => {
+    // In a real scenario with manual fetching, you'd re-fetch here.
+    // With Firestore's real-time listener, we just simulate the refresh UI.
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 1000);
+  }, []);
 
   const handleSaveTask = useCallback(async (taskData) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -111,16 +127,33 @@ const DashboardScreen = ({ navigation }) => {
     }
   }, [user]);
 
-  const handleDeleteTask = useCallback((taskId) => {
-    Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          FirestoreService.deleteTask(user.uid, taskId);
-      }},
-    ]);
+  // --- ENHANCED: "Undo Delete" Logic ---
+  const handleDeleteTask = useCallback((task) => {
+    // Immediately hide the task from the UI by setting its state
+    setRecentlyDeleted(task);
+    setSnackbarVisible(true);
+    
+    // Clear any existing deletion timeout
+    if (deleteTimeoutRef.current) {
+        clearTimeout(deleteTimeoutRef.current);
+    }
+
+    // Set a timeout to permanently delete the task after a few seconds
+    deleteTimeoutRef.current = setTimeout(() => {
+        FirestoreService.deleteTask(user.uid, task.id);
+        setRecentlyDeleted(null);
+        deleteTimeoutRef.current = null;
+    }, 4000); // 4 seconds to undo
   }, [user]);
 
+  const onUndoDelete = () => {
+    if (deleteTimeoutRef.current) {
+        clearTimeout(deleteTimeoutRef.current);
+    }
+    setRecentlyDeleted(null);
+    setSnackbarVisible(false);
+  };
+  
   const openEditModal = useCallback((task) => {
     setTaskToEdit(task);
     setModalVisible(true);
@@ -137,15 +170,16 @@ const DashboardScreen = ({ navigation }) => {
   }, [navigation]);
 
   // --- Render Functions ---
-
-  const renderTaskItem = useCallback(({ item }) => (
-    <TaskItem
-        task={item}
-        onToggle={() => handleToggleTask(item)}
-        onDelete={() => handleDeleteTask(item.id)}
-        onEdit={() => openEditModal(item)}
-        onFocus={() => startFocusSession(item)}
-    />
+  const renderTaskItem = useCallback(({ item, index }) => (
+    <Animatable.View animation="fadeInUp" duration={500} delay={index * 50}>
+      <TaskItem
+          task={item}
+          onToggle={() => handleToggleTask(item)}
+          onDelete={() => handleDeleteTask(item)} // Pass the whole task object
+          onEdit={() => openEditModal(item)}
+          onFocus={() => startFocusSession(item)}
+      />
+    </Animatable.View>
   ), [handleToggleTask, handleDeleteTask, openEditModal, startFocusSession]);
 
   const renderSectionHeader = ({ section: { title, data } }) => (
@@ -163,19 +197,27 @@ const DashboardScreen = ({ navigation }) => {
         <Text style={styles.emptySubText}>
             {filter === 'All' ? "Add a new task to get started." : `No ${filter.toLowerCase()} tasks.`}
         </Text>
+        <Button mode="contained-tonal" onPress={openAddModal} style={{marginTop: 20}}>
+            Add Your First Task
+        </Button>
     </View>
   );
+  
+  // Filter out the task that is pending deletion
+  const tasksToDisplay = useMemo(() => {
+      if (!recentlyDeleted) return processedTasks;
+      return processedTasks.filter(task => task.id !== recentlyDeleted.id);
+  }, [processedTasks, recentlyDeleted]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* --- Header Section --- */}
       <LinearGradient
         colors={theme.colors.headerGradient}
         style={styles.headerGradient}
       >
         <Appbar.Header style={styles.appbarHeader}>
           <Appbar.Content
-            title={`${greeting}, ${user?.email?.split('@')[0] || 'Guest'}`}
+            title={`${greeting}, ${userData?.username || user?.displayName || 'Guest'}`}
             subtitle={`Today is ${format(new Date(), 'MMMM d')}`}
             titleStyle={styles.headerTitle}
             subtitleStyle={styles.headerSubtitle}
@@ -184,7 +226,6 @@ const DashboardScreen = ({ navigation }) => {
         <GamificationHeader userData={userData} />
       </LinearGradient>
       
-      {/* --- Controls Section --- */}
       <Searchbar
         placeholder="Search tasks, tags, etc..."
         onChangeText={setSearchQuery}
@@ -224,19 +265,24 @@ const DashboardScreen = ({ navigation }) => {
 
       {/* --- Task List Section --- */}
       {loading ? (
-        <ActivityIndicator animating={true} size="large" style={styles.loader} />
+        <FlatList
+            data={Array(5).fill(0)} // Render 5 skeleton items
+            renderItem={() => <TaskItemSkeleton />}
+            keyExtractor={(item, index) => `skeleton-${index}`}
+        />
       ) : grouping === 'Group by Priority' ? (
         <SectionList
-          sections={processedTasks}
+          sections={tasksToDisplay}
           keyExtractor={(item) => item.id}
           renderItem={renderTaskItem}
           renderSectionHeader={renderSectionHeader}
           ListEmptyComponent={renderEmptyComponent}
           contentContainerStyle={styles.listContentContainer}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         />
       ) : (
         <FlatList
-          data={processedTasks}
+          data={tasksToDisplay}
           keyExtractor={(item) => item.id}
           renderItem={renderTaskItem}
           initialNumToRender={10}
@@ -244,10 +290,10 @@ const DashboardScreen = ({ navigation }) => {
           windowSize={10}
           ListEmptyComponent={renderEmptyComponent}
           contentContainerStyle={styles.listContentContainer}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         />
       )}
 
-      {/* --- Modal and FAB --- */}
       <AddTaskModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -262,6 +308,17 @@ const DashboardScreen = ({ navigation }) => {
           color="#fff"
         />
       </Animatable.View>
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        action={{
+          label: 'Undo',
+          onPress: onUndoDelete,
+        }}
+        duration={3500}
+      >
+        Task deleted.
+      </Snackbar>
     </View>
   );
 };

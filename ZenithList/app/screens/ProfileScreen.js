@@ -53,8 +53,9 @@ const ProfileScreen = () => {
             colors={[theme.colors.primary, '#6A5ACD99']}
             style={styles.header}
         >
-            <Avatar.Text size={90} label={user?.email?.[0].toUpperCase() || 'A'} style={styles.avatar} />
-            <Text variant="headlineSmall" style={styles.email}>{user?.email || 'Anonymous'}</Text>
+            <Avatar.Text size={90} label={user?.displayName?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || 'G'} style={styles.avatar} />
+            <Text variant="headlineSmall" style={styles.username}>{user?.displayName || 'Guest User'}</Text>
+            <Text variant="bodyMedium" style={styles.email}>{user?.email}</Text>
         </LinearGradient>
       <ScrollView style={styles.content}>
         <List.Section style={styles.settingsSection}>
@@ -123,12 +124,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   avatar: {
-    marginBottom: 15,
+    marginBottom: 10,
     backgroundColor: 'rgba(255,255,255,0.3)'
   },
-  email: {
+  username: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  email: {
+    color: 'rgba(255,255,255,0.8)',
   },
   settingsSection: {
       marginBottom: 20,
