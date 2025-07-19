@@ -26,7 +26,9 @@
     "react-native-animatable": "^1.4.0",
     "react-native-calendars": "^1.1313.0",
     "react-native-circular-progress": "^1.4.1",
-    "react-native-paper": "^5.14.5"
+    "react-native-paper": "^5.14.5",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.17.4"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
