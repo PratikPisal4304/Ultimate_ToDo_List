@@ -21,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.pratik0403.ZenithList"
+      "package": "com.pratik0403.ZenithList",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,7 +30,13 @@
     "extra": {
       "eas": {
         "projectId": "e7d4042c-4e86-4aa8-87f1-1803cf970dc6"
-      }
+      },
+      "firebaseApiKey": "${EXPO_PUBLIC_FIREBASE_API_KEY}",
+      "firebaseAuthDomain": "${EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN}",
+      "firebaseProjectId": "${EXPO_PUBLIC_FIREBASE_PROJECT_ID}",
+      "firebaseStorageBucket": "${EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET}",
+      "firebaseMessagingSenderId": "${EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}",
+      "firebaseAppId": "${EXPO_PUBLIC_FIREBASE_APP_ID}"
     },
     "plugins": [
       "expo-secure-store"
