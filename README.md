@@ -117,7 +117,21 @@
 
 The project is organized to be scalable and maintainable, following best practices for React Native development.
 
-ZenithList/├── app/│   ├── components/       # Reusable UI components (TaskItem, AddTaskModal, etc.)│   ├── context/          # React Context providers (AuthContext, TasksContext, ThemeContext)│   ├── firebase/         # Firebase service files (auth.js, firestore.js)│   ├── hooks/            # Custom hooks for complex logic (useFilteredTasks, useUserData)│   ├── navigation/       # Navigation configuration (RootNavigator, AppNavigator)│   ├── screens/          # Application screens (DashboardScreen, ProfileScreen, etc.)│   ├── services/         # External services logic (aiService.js)│   └── notifications.js  # Notification scheduling logic├── assets/               # App icons, fonts, and splash screens├── docs/                 # Documentation files like the privacy policy├── App.js                # Main app entry point where all providers are wrapped├── app.json              # Expo configuration file, including environment variables└── firebaseConfig.js     # Firebase initialization logic
+ZenithList/
+├── app/
+│   ├── components/       # Reusable UI components (TaskItem, AddTaskModal, etc.)
+│   ├── context/          # React Context providers (AuthContext, TasksContext, ThemeContext)
+│   ├── firebase/         # Firebase service files (auth.js, firestore.js)
+│   ├── hooks/            # Custom hooks for complex logic (useFilteredTasks, useUserData)
+│   ├── navigation/       # Navigation configuration (RootNavigator, AppNavigator)
+│   ├── screens/          # Application screens (DashboardScreen, ProfileScreen, etc.)
+│   ├── services/         # External services logic (aiService.js)
+│   └── notifications.js  # Notification scheduling logic
+├── assets/               # App icons, fonts, and splash screens
+├── docs/                 # Documentation files like the privacy policy
+├── App.js                # Main app entry point where all providers are wrapped
+├── app.json              # Expo configuration file, including environment variables
+└── firebaseConfig.js     # Firebase initialization logic
 ---
 
 ## 🔐 AI Task Generation Setup
@@ -152,6 +166,6 @@ Contributions are welcome! If you have suggestions for improvements or find a bu
 
 ## 📧 Contact
 
-Pratik Pisal - [pratikpisal4304@gmail.com](mailto:pisalpratik2004@gmail.com)
+Pratik Pisal - [pisalpratik2004@gmail.com](mailto:pisalpratik2004@gmail.com)
 
 Project Link: [https://github.com/pratikpisal4304/ultimate_todo_list](https://github.com/pratikpisal4304/ultimate_todo_list)
