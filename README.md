@@ -116,7 +116,7 @@
 ## 📁 Project Structure
 
 The project is organized to be scalable and maintainable, following best practices for React Native development.
-
+```
 ZenithList/
 ├── app/
 │   ├── components/       # Reusable UI components (TaskItem, AddTaskModal, etc.)
@@ -132,6 +132,7 @@ ZenithList/
 ├── App.js                # Main app entry point where all providers are wrapped
 ├── app.json              # Expo configuration file, including environment variables
 └── firebaseConfig.js     # Firebase initialization logic
+```
 ---
 
 ## 🔐 AI Task Generation Setup
