@@ -3,16 +3,18 @@ import React, { useContext, useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, SectionList } from 'react-native';
 import { Appbar, Text, useTheme, Button } from 'react-native-paper';
 import { Calendar } from 'react-native-calendars';
-import { format, startOfDay, addDays, isToday, isTomorrow, isAfter } from 'date-fns';
+import { format, startOfDay, addDays, isToday, isTomorrow } from 'date-fns';
 import { TasksContext } from '../context/TasksContext';
 import TaskItem from '../components/TaskItem';
 import { AuthContext } from '../context/AuthContext';
 import * as FirestoreService from '../firebase/firestore';
+import { ThemeContext } from '../context/ThemeContext'; // Import ThemeContext
 
 const CalendarScreen = ({ navigation }) => {
     const theme = useTheme();
     const { user } = useContext(AuthContext);
     const { tasks } = useContext(TasksContext);
+    const { isDarkMode } = useContext(ThemeContext); // Get theme state
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
     // Memoize marked dates for performance
@@ -68,13 +70,12 @@ const CalendarScreen = ({ navigation }) => {
 
     // Handlers for TaskItem actions
     const handleToggleTask = useCallback((task) => {
-        // FIX: Pass the entire task object to handleCompleteTask as required.
         if (!task.isCompleted) {
             FirestoreService.handleCompleteTask(user.uid, task);
         } else {
             FirestoreService.updateTask(user.uid, task.id, { isCompleted: false });
         }
-    }, [user]); // user is a dependency now, but it's guarded by the RootNavigator
+    }, [user]);
 
     const openEditModal = useCallback((task) => {
         // This functionality needs to be handled differently as the modal is on Dashboard.
@@ -102,6 +103,8 @@ const CalendarScreen = ({ navigation }) => {
             </Appbar.Header>
 
             <Calendar
+                // FIX: Add a key that changes with the theme to force a re-render
+                key={isDarkMode ? 'dark-calendar' : 'light-calendar'}
                 current={selectedDate}
                 onDayPress={day => setSelectedDate(day.dateString)}
                 markingType={'multi-dot'}
