@@ -10,9 +10,9 @@
 
 | Login Screen | Dashboard | Add Task Modal |
 | :---: | :---: | :---: |
-| <img src="./assets/previews/login.png" alt="Login Screen" width="300"/> | <img src="./assets/previews/dashboard.png" alt="Dashboard" width="300"/> | <img src="./assets/previews/add-task-modal.png" alt="Add Task Modal" width="300"/> |
+| <img src="./ZenithList/assets/previews/login.png" alt="Login Screen" width="300"/> | <img src="./ZenithList/assets/previews/dashboard.png" alt="Dashboard" width="300"/> | <img src="./ZenithList/assets/previews/add-task-modal.png" alt="Add Task Modal" width="300"/> |
 | **Calendar View** | **Focus Mode** | **Profile Screen** |
-| <img src="./assets/previews/calendar.png" alt="Calendar View" width="300"/> | <img src="./assets/previews/focus-mode.png" alt="Focus Mode" width="300"/> | <img src="./assets/previews/profile.png" alt="Profile Screen" width="300"/> |
+| <img src="./ZenithList/assets/previews/calendar.png" alt="Calendar View" width="300"/> | <img src="./ZenithList/assets/previews/focus-mode.png" alt="Focus Mode" width="300"/> | <img src="./ZenithList/assets/previews/profile.png" alt="Profile Screen" width="300"/> |
 
 ---
 
