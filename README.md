@@ -79,7 +79,7 @@
 
 1.  **Clone the repository:**
     ```bash
-    git clone (https://github.com/PratikPisal4304/Ultimate_ToDo_List.git)
+    git clone https://github.com/PratikPisal4304/Ultimate_ToDo_List.git
     cd zenith-list/ZenithList
     ```
 
