@@ -10,9 +10,9 @@
 
 | Login Screen | Dashboard | Add Task Modal |
 | :---: | :---: | :---: |
-| ![Login Screen](https://placehold.co/300x600/1A1A1A/FFFFFF/png?text=Login+Screen) | ![Dashboard](https://placehold.co/300x600/1A1A1A/FFFFFF/png?text=Dashboard) | ![Add Task Modal](https://placehold.co/300x600/1A1A1A/FFFFFF/png?text=Add+Task+Modal) |
+| <img src="./assets/previews/login.png" alt="Login Screen" width="300"/> | <img src="./assets/previews/dashboard.png" alt="Dashboard" width="300"/> | <img src="./assets/previews/add-task-modal.png" alt="Add Task Modal" width="300"/> |
 | **Calendar View** | **Focus Mode** | **Profile Screen** |
-| ![Calendar View](https://placehold.co/300x600/1A1A1A/FFFFFF/png?text=Calendar+View) | ![Focus Mode](https://placehold.co/300x600/1A1A1A/FFFFFF/png?text=Focus+Mode) | ![Profile Screen](https://placehold.co/300x600/1A1A1A/FFFFFF/png?text=Profile+Screen) |
+| <img src="./assets/previews/calendar.png" alt="Calendar View" width="300"/> | <img src="./assets/previews/focus-mode.png" alt="Focus Mode" width="300"/> | <img src="./assets/previews/profile.png" alt="Profile Screen" width="300"/> |
 
 ---
 
